@@ -1,4 +1,7 @@
-import type { Visibilidad } from "../business/playlists/types.js";
+import type {
+	PlaylistResumen,
+	Visibilidad,
+} from "../business/playlists/types.js";
 import { getLogFilePath } from "../data/logging/pino-setup.js";
 
 // Forma visible aprobada de la visibilidad en el mensaje de éxito (RF-002): los valores de
@@ -96,8 +99,8 @@ export const MESSAGES = {
 			"0. Cancelar sin crear / Elige (0-2):",
 		cancelled: "Creación cancelada. No se creó ninguna playlist.",
 		listaVacia: "No tienes playlists creadas.",
-		listado: (nombres: readonly string[]) =>
-			`Tus playlists (${nombres.length}):\n${nombres.map((nombre) => `- "${nombre}"`).join("\n")}`,
+		listado: (playlists: readonly PlaylistResumen[]) =>
+			`Tus playlists (${playlists.length}):\n${playlists.map((playlist) => `- "${playlist.nombre}" (id: ${playlist.id})`).join("\n")}`,
 		namePrompt: "Nombre de la playlist (3-100 caracteres):",
 		descriptionPrompt:
 			'Descripción (opcional, Enter para usar "Playlist sin descripción"):',

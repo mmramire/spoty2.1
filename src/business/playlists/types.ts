@@ -127,10 +127,15 @@ export interface Cancelado {
 	readonly resultado: "cancelado";
 }
 
-/** Desenlace: listado de nombres de playlists propias del usuario vigente. */
+/** Resumen mínimo de playlist propia: nombre visible e identificador de Spotify. */
+export interface PlaylistResumen {
+	readonly id: string;
+	readonly nombre: string;
+}
+/** Desenlace: listado de playlists propias con nombre e identificador. */
 export interface ListaPlaylists {
 	readonly resultado: "exito";
-	readonly nombres: readonly string[];
+	readonly playlists: readonly PlaylistResumen[];
 }
 
 /**
@@ -152,7 +157,7 @@ export type ResultadoCreacion =
 
 /**
  * Resultado del listado de playlists propias como unión discriminada por
- * `resultado`: `ListaPlaylists` con los nombres, o bien `SinSesion`,
+ * `resultado`: `ListaPlaylists` con las playlists, o bien `SinSesion`,
  * `SesionCaducada`, `PermisosInsuficientes`, `LimiteAgotado` o
  * `FalloInesperado` ante fallo de servicio.
  */

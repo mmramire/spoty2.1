@@ -37,7 +37,7 @@ describe("ejecutarFlujoListado: listado de playlists propias", () => {
 	it("con sesión vigente y sin playlists avisa la lista vacía", async () => {
 		const casoUso = vi.fn().mockResolvedValue({
 			resultado: "exito",
-			nombres: [],
+			playlists: [],
 		});
 		const verificarSesion = vi.fn().mockResolvedValue(true);
 
@@ -52,10 +52,13 @@ describe("ejecutarFlujoListado: listado de playlists propias", () => {
 	});
 
 	it("con sesión vigente presenta los nombres de las playlists", async () => {
-		const nombres = ["Rock", "Jazz nocturno"];
+		const playlists = [
+			{ id: "id-rock", nombre: "Rock" },
+			{ id: "id-jazz", nombre: "Jazz nocturno" },
+		];
 		const casoUso = vi.fn().mockResolvedValue({
 			resultado: "exito",
-			nombres,
+			playlists,
 		});
 		const verificarSesion = vi.fn().mockResolvedValue(true);
 
@@ -66,7 +69,7 @@ describe("ejecutarFlujoListado: listado de playlists propias", () => {
 
 		expect(finalizacion).toEqual({ estado: "lista" });
 		expect(showMessage).toHaveBeenCalledWith(
-			MESSAGES.playlist.listado(nombres),
+			MESSAGES.playlist.listado(playlists),
 		);
 	});
 
@@ -91,7 +94,7 @@ describe("ejecutarFlujoListado: listado de playlists propias", () => {
 	it("sin verificador invoca la petición directamente", async () => {
 		const casoUso = vi.fn().mockResolvedValue({
 			resultado: "exito",
-			nombres: ["Rock"],
+			playlists: [{ id: "id-rock", nombre: "Rock" }],
 		});
 
 		const finalizacion = await ejecutarFlujoListado({ casoUso });

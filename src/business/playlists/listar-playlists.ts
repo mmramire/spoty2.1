@@ -1,5 +1,5 @@
 /**
- * Caso de uso `listarPlaylistsPropias`: lista los nombres de las playlists
+ * Caso de uso `listarPlaylistsPropias`: lista las playlists
  * propias del usuario con sesión vigente.
  *
  * Orden del flujo: sesión → listado → éxito, o bien desenlace de dominio.
@@ -13,7 +13,7 @@
  */
 import { clasificarErrorData } from "./errores.js";
 import type { DependenciasCreacion, RegistroTecnico } from "./puertos.js";
-import type { ResultadoLista } from "./types.js";
+import type { PlaylistResumen, ResultadoLista } from "./types.js";
 
 /** Mensaje técnico del `info` de inicio (RNF-006). */
 const MENSAJE_INICIO = "Inicio de listado de playlists propias";
@@ -42,10 +42,10 @@ function clasificarFalloListado(
 }
 
 /**
- * Lista los nombres de las playlists propias del usuario vigente.
+ * Lista las playlists propias del usuario vigente con nombre e identificador.
  *
  * - Sin sesión vigente → `SinSesion` sin invocar el gateway.
- * - Listado completado → `ListaPlaylists` con los nombres e `info` de éxito.
+ * - Listado completado → `ListaPlaylists` con las playlists e `info` de éxito.
  * - Error de servicio → `SesionCaducada` (401), `PermisosInsuficientes`
  *   (403), `LimiteAgotado` (429) o `FalloInesperado`, cada uno con `error`
  *   final de causa depurada.
@@ -61,13 +61,13 @@ export async function listarPlaylistsPropias(
 	const { registroTecnico } = dependencias;
 	registroTecnico.info(MENSAJE_INICIO);
 
-	let nombres: string[];
+	let playlists: readonly PlaylistResumen[];
 	try {
-		nombres = await dependencias.playlistGateway.listarPlaylistsPropias();
+		playlists = await dependencias.playlistGateway.listarPlaylistsPropias();
 	} catch (error) {
 		return clasificarFalloListado(error, registroTecnico);
 	}
 
 	registroTecnico.info(MENSAJE_EXITO);
-	return { resultado: "exito", nombres: [...nombres] };
+	return { resultado: "exito", playlists: [...playlists] };
 }

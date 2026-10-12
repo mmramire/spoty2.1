@@ -33,10 +33,16 @@ export interface PlaylistCreada {
 	readonly enlace: string;
 }
 
+/** Playlist propia resumida: identificador de Spotify y nombre visible. */
+export interface PlaylistResumen {
+	readonly id: string;
+	readonly nombre: string;
+}
+
 /** Gateway de playlists con la forma estructural del puerto `PlaylistGateway`. */
 export interface GatewayPlaylists {
 	crearPlaylist: (entrada: EntradaCreacion) => Promise<PlaylistCreada>;
-	listarPlaylistsPropias: () => Promise<string[]>;
+	listarPlaylistsPropias: () => Promise<readonly PlaylistResumen[]>;
 }
 
 /** Punto de inyección de `fetch` para pruebas sin red real. */
@@ -189,6 +195,7 @@ async function crearPlaylist(
 }
 
 interface ItemPagina {
+	readonly id?: unknown;
 	readonly name?: unknown;
 	readonly owner?: { readonly id?: unknown };
 }
@@ -201,27 +208,31 @@ interface PaginaPlaylists {
 function nombresPropiosDePagina(
 	pagina: PaginaPlaylists,
 	usuarioId: string,
-): string[] {
+): PlaylistResumen[] {
 	const items = pagina.items ?? [];
-	const nombres: string[] = [];
+	const propias: PlaylistResumen[] = [];
 	for (const item of items) {
-		if (item?.owner?.id === usuarioId && esCadena(item.name)) {
-			nombres.push(item.name);
+		if (
+			item?.owner?.id === usuarioId &&
+			esCadena(item.name) &&
+			esCadena(item.id)
+		) {
+			propias.push({ id: item.id, nombre: item.name });
 		}
 	}
-	return nombres;
+	return propias;
 }
 
 async function listarPlaylistsPropias(
 	fetchHttp: FetchInyectable,
 	obtenerTestigo: () => string | null,
-): Promise<string[]> {
+): Promise<readonly PlaylistResumen[]> {
 	const testigo = obtenerTestigo();
 	if (!testigo) {
 		throw new ErrorApiSpotify("HTTP 401", 401);
 	}
 	const usuarioId = await obtenerUsuario(fetchHttp, testigo);
-	const propias: string[] = [];
+	const propias: PlaylistResumen[] = [];
 	let url: string | null = `${URL_BASE}/me/playlists?limit=${LIMITE_PAGINA}`;
 	while (url) {
 		const respuesta = await solicitar(fetchHttp, url, {

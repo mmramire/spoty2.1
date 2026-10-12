@@ -8,7 +8,10 @@
  * registra y no ejecuta efectos secundarios más allá de presentar por la capa
  * de presentación (RNF-002, RNF-003, RNF-006).
  */
-import type { ResultadoLista } from "../business/playlists/types.js";
+import type {
+	PlaylistResumen,
+	ResultadoLista,
+} from "../business/playlists/types.js";
 import type { CasoUsoListarPlaylists } from "./composicion-listar-playlists.js";
 import { MESSAGES } from "./messages.js";
 import { showError, showMessage } from "./prompts.js";
@@ -45,12 +48,14 @@ const LITERALES_DE_ERROR = {
 	falloInesperado: MESSAGES.playlist.unexpectedError,
 } as const;
 
-/** Presenta el desenlace de éxito: lista de nombres o aviso de lista vacía. */
-function presentarExito(nombres: readonly string[]): FinalizacionListado {
-	if (nombres.length === 0) {
+/** Presenta el desenlace de éxito: lista de playlists o aviso de lista vacía. */
+function presentarExito(
+	playlists: readonly PlaylistResumen[],
+): FinalizacionListado {
+	if (playlists.length === 0) {
 		showMessage(MESSAGES.playlist.listaVacia);
 	} else {
-		showMessage(MESSAGES.playlist.listado(nombres));
+		showMessage(MESSAGES.playlist.listado(playlists));
 	}
 	return LISTA;
 }
@@ -72,7 +77,7 @@ export async function ejecutarFlujoListado(
 	}
 	const resultado: ResultadoLista = await coordinador.casoUso();
 	if (resultado.resultado === "exito") {
-		return presentarExito(resultado.nombres);
+		return presentarExito(resultado.playlists);
 	}
 	showError(LITERALES_DE_ERROR[resultado.resultado]);
 	return ERROR;

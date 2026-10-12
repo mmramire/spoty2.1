@@ -11,6 +11,7 @@ import type {
 	DescripcionEfectiva,
 	EntradaCreacionPlaylist,
 	PlaylistCreada,
+	PlaylistResumen,
 	SesionVigente,
 	Visibilidad,
 } from "./types.js";
@@ -38,7 +39,7 @@ export interface SesionProveedor {
 /** Puerta de acceso a playlists: Data la implementa; Business solo la consume. */
 export interface PlaylistGateway {
 	crearPlaylist: (entrada: EntradaCreacionPlaylist) => Promise<PlaylistCreada>;
-	listarPlaylistsPropias: () => Promise<string[]>;
+	listarPlaylistsPropias: () => Promise<readonly PlaylistResumen[]>;
 }
 
 /** Registro técnico: Data lo implementa sobre Pino; Business emite la intención. */

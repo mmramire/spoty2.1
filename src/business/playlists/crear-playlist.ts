@@ -98,7 +98,8 @@ async function comprobarDuplicado(
 		return null;
 	}
 	const propias = await dependencias.playlistGateway.listarPlaylistsPropias();
-	if (!esDuplicadoPropio(entrada.nombreEfectivo, propias)) {
+	const nombresPropios = propias.map((propia) => propia.nombre);
+	if (!esDuplicadoPropio(entrada.nombreEfectivo, nombresPropios)) {
 		return null;
 	}
 	dependencias.registroTecnico.advertencia(MENSAJE_DUPLICADO, {
