@@ -14,20 +14,25 @@
  * `SPOTY_TOKENS_FILE` y `SPOTY_LOG_FILE` y la red se sustituye por un doble
  * (RNF-003, RNF-004, compatibilidad SEA sin dependencias nuevas).
  */
-import { checkExistingSession } from '../business/auth/flow.js';
-import { getStoredTokens } from '../business/auth/tokens.js';
-import { crearPlaylistVacia } from '../business/playlists/crear-playlist.js';
+import { checkExistingSession } from "../business/auth/flow.js";
+import { getStoredTokens } from "../business/auth/tokens.js";
+import { crearPlaylistVacia } from "../business/playlists/crear-playlist.js";
 import type {
-  DependenciasCreacion,
-  Espera,
-  SesionProveedor,
-} from '../business/playlists/puertos.js';
-import type { ResultadoCreacion, SolicitudCreacion } from '../business/playlists/types.js';
-import { crearPlaylistGateway } from '../data/http/playlists-client.js';
-import { crearRegistroTecnico } from '../data/logging/registro-tecnico.js';
+	DependenciasCreacion,
+	Espera,
+	SesionProveedor,
+} from "../business/playlists/puertos.js";
+import type {
+	ResultadoCreacion,
+	SolicitudCreacion,
+} from "../business/playlists/types.js";
+import { crearPlaylistGateway } from "../data/http/playlists-client.js";
+import { crearRegistroTecnico } from "../data/logging/registro-tecnico.js";
 
 /** Caso de uso ya compuesto: se invoca con una solicitud, sin dependencias. */
-export type CasoUsoCrearPlaylist = (solicitud: SolicitudCreacion) => Promise<ResultadoCreacion>;
+export type CasoUsoCrearPlaylist = (
+	solicitud: SolicitudCreacion,
+) => Promise<ResultadoCreacion>;
 
 /**
  * Espera real de temporizador (ARCHITECTURE §5): los retardos solo ocurren a
@@ -35,10 +40,10 @@ export type CasoUsoCrearPlaylist = (solicitud: SolicitudCreacion) => Promise<Res
  * propios para la creación.
  */
 const esperaDeTemporizador: Espera = {
-  esperar: (milisegundos) =>
-    new Promise<void>((resolve) => {
-      setTimeout(resolve, milisegundos);
-    }),
+	esperar: (milisegundos) =>
+		new Promise<void>((resolve) => {
+			setTimeout(resolve, milisegundos);
+		}),
 };
 
 /**
@@ -48,14 +53,28 @@ const esperaDeTemporizador: Espera = {
  * acceso (BR-001, UC-001-E1).
  */
 const sesionDeAlmacenamiento: SesionProveedor = {
-  async obtenerSesionVigente() {
-    if (getStoredTokens() === null) {
-      return null;
-    }
-    const sesion = await checkExistingSession();
-    return sesion === null ? null : { testigoSesion: sesion.tokens.access_token };
-  },
+	async obtenerSesionVigente() {
+		if (getStoredTokens() === null) {
+			return null;
+		}
+		const sesion = await checkExistingSession();
+		return sesion === null
+			? null
+			: { testigoSesion: sesion.tokens.access_token };
+	},
 };
+
+/**
+ * Verificación previa de sesión para Presentation (UC-001-E1): reutiliza el
+ * mismo `SesionProveedor` real del caso de uso —tokens almacenados más
+ * validación vigente contra Spotify— de modo que el coordinador y los puntos
+ * de entrada puedan comprobar que la cuenta está conectada antes de pedir el
+ * formulario o de invocar la petición.
+ */
+export async function verificarSesionParaCrearPlaylist(): Promise<boolean> {
+	const sesion = await sesionDeAlmacenamiento.obtenerSesionVigente();
+	return sesion !== null;
+}
 
 /**
  * Única composición de arranque (TASK-013): devuelve el caso de uso listo para
@@ -63,11 +82,11 @@ const sesionDeAlmacenamiento: SesionProveedor = {
  * construcción y con los mismos tipos (RNF-003).
  */
 export function componerCrearPlaylistVacia(): CasoUsoCrearPlaylist {
-  const dependencias: DependenciasCreacion = {
-    sesionProveedor: sesionDeAlmacenamiento,
-    playlistGateway: crearPlaylistGateway(),
-    registroTecnico: crearRegistroTecnico(),
-    espera: esperaDeTemporizador,
-  };
-  return (solicitud) => crearPlaylistVacia(solicitud, dependencias);
+	const dependencias: DependenciasCreacion = {
+		sesionProveedor: sesionDeAlmacenamiento,
+		playlistGateway: crearPlaylistGateway(),
+		registroTecnico: crearRegistroTecnico(),
+		espera: esperaDeTemporizador,
+	};
+	return (solicitud) => crearPlaylistVacia(solicitud, dependencias);
 }

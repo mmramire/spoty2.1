@@ -8,12 +8,12 @@
  * usa Pino, red ni sistema de ficheros directamente (RNF-003).
  */
 import type {
-  DescripcionEfectiva,
-  EntradaCreacionPlaylist,
-  PlaylistCreada,
-  SesionVigente,
-  Visibilidad,
-} from './types.js';
+	DescripcionEfectiva,
+	EntradaCreacionPlaylist,
+	PlaylistCreada,
+	SesionVigente,
+	Visibilidad,
+} from "./types.js";
 
 /**
  * Campos estructurados admitidos por el registro técnico (RNF-006). El conjunto
@@ -21,42 +21,42 @@ import type {
  * registro (RNF-001).
  */
 export interface CamposRegistro {
-  readonly nombre?: string;
-  readonly visibilidad?: Visibilidad;
-  readonly descripcionEfectiva?: DescripcionEfectiva;
-  readonly identificador?: string;
-  readonly intento?: number;
-  readonly estado?: number;
-  readonly causa?: string;
+	readonly nombre?: string;
+	readonly visibilidad?: Visibilidad;
+	readonly descripcionEfectiva?: DescripcionEfectiva;
+	readonly identificador?: string;
+	readonly intento?: number;
+	readonly estado?: number;
+	readonly causa?: string;
 }
 
 /** Sesión vigente: devuelve `null` cuando no hay sesión utilizable (BR-001). */
 export interface SesionProveedor {
-  obtenerSesionVigente: () => Promise<SesionVigente | null>;
+	obtenerSesionVigente: () => Promise<SesionVigente | null>;
 }
 
 /** Puerta de acceso a playlists: Data la implementa; Business solo la consume. */
 export interface PlaylistGateway {
-  crearPlaylist: (entrada: EntradaCreacionPlaylist) => Promise<PlaylistCreada>;
-  listarPlaylistsPropias: () => Promise<string[]>;
+	crearPlaylist: (entrada: EntradaCreacionPlaylist) => Promise<PlaylistCreada>;
+	listarPlaylistsPropias: () => Promise<string[]>;
 }
 
 /** Registro técnico: Data lo implementa sobre Pino; Business emite la intención. */
 export interface RegistroTecnico {
-  info: (mensaje: string, campos?: CamposRegistro) => void;
-  advertencia: (mensaje: string, campos?: CamposRegistro) => void;
-  error: (mensaje: string, campos?: CamposRegistro) => void;
+	info: (mensaje: string, campos?: CamposRegistro) => void;
+	advertencia: (mensaje: string, campos?: CamposRegistro) => void;
+	error: (mensaje: string, campos?: CamposRegistro) => void;
 }
 
 /** Espera inyectable: evita temporizadores propios en Business y protege las pruebas. */
 export interface Espera {
-  esperar: (milisegundos: number) => Promise<void>;
+	esperar: (milisegundos: number) => Promise<void>;
 }
 
 /** Dependencias inyectadas que recibe el caso de uso `crearPlaylistVacia` (UC-001). */
 export interface DependenciasCreacion {
-  readonly sesionProveedor: SesionProveedor;
-  readonly playlistGateway: PlaylistGateway;
-  readonly registroTecnico: RegistroTecnico;
-  readonly espera: Espera;
+	readonly sesionProveedor: SesionProveedor;
+	readonly playlistGateway: PlaylistGateway;
+	readonly registroTecnico: RegistroTecnico;
+	readonly espera: Espera;
 }

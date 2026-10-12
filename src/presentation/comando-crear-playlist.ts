@@ -19,25 +19,31 @@
  * presenta literales propios: cada desenlace y su literal exacto los gestiona
  * el coordinador con `MESSAGES` (TASK-011, TASK-014; ARCHITECTURE §6.2, §6.3).
  */
-import type { EntradaVisibilidad } from '../business/playlists/types.js';
-import { resolverDescripcionEfectiva } from '../business/playlists/validacion.js';
-import { componerCrearPlaylistVacia } from './composicion-crear-playlist.js';
+import type { EntradaVisibilidad } from "../business/playlists/types.js";
+import { resolverDescripcionEfectiva } from "../business/playlists/validacion.js";
 import {
-  type CoordinadorCreacion,
-  type EntradaDirecta,
-  type FinalizacionCreacion,
-  ejecutarFlujoCreacion,
-  peticionesDeTerminal,
-} from './crear-playlist.js';
+	componerCrearPlaylistVacia,
+	verificarSesionParaCrearPlaylist,
+} from "./composicion-crear-playlist.js";
+import {
+	type CoordinadorCreacion,
+	type EntradaDirecta,
+	type FinalizacionCreacion,
+	ejecutarFlujoCreacion,
+	peticionesDeTerminal,
+} from "./crear-playlist.js";
 
 /** Valor del indicador `--name` o `--description`, tal como lo aportó el usuario. */
-function leerValor(argumentos: readonly string[], indicador: string): string | undefined {
-  for (let i = 0; i < argumentos.length; i++) {
-    if (argumentos[i] === indicador) {
-      return argumentos[i + 1];
-    }
-  }
-  return undefined;
+function leerValor(
+	argumentos: readonly string[],
+	indicador: string,
+): string | undefined {
+	for (let i = 0; i < argumentos.length; i++) {
+		if (argumentos[i] === indicador) {
+			return argumentos[i + 1];
+		}
+	}
+	return undefined;
 }
 
 /**
@@ -47,18 +53,18 @@ function leerValor(argumentos: readonly string[], indicador: string): string | u
  * (BR-005, ARCHITECTURE §6.3).
  */
 function leerVisibilidad(argumentos: readonly string[]): EntradaVisibilidad {
-  const publica = argumentos.includes('--public');
-  const privada = argumentos.includes('--private');
-  if (publica && privada) {
-    return 'doble';
-  }
-  if (publica) {
-    return 'publica';
-  }
-  if (privada) {
-    return 'privada';
-  }
-  return 'ausente';
+	const publica = argumentos.includes("--public");
+	const privada = argumentos.includes("--private");
+	if (publica && privada) {
+		return "doble";
+	}
+	if (publica) {
+		return "publica";
+	}
+	if (privada) {
+		return "privada";
+	}
+	return "ausente";
 }
 
 /**
@@ -68,13 +74,17 @@ function leerVisibilidad(argumentos: readonly string[]): EntradaVisibilidad {
  * resuelve con el predicado de Business, que aporta el valor por defecto
  * aprobado (RF-001, P-004).
  */
-export function analizarEntradaDirecta(argumentos: readonly string[]): EntradaDirecta {
-  return {
-    nombre: leerValor(argumentos, '--name') ?? '',
-    descripcion: resolverDescripcionEfectiva(leerValor(argumentos, '--description')),
-    visibilidad: leerVisibilidad(argumentos),
-    confirmacionPreResuelta: true,
-  };
+export function analizarEntradaDirecta(
+	argumentos: readonly string[],
+): EntradaDirecta {
+	return {
+		nombre: leerValor(argumentos, "--name") ?? "",
+		descripcion: resolverDescripcionEfectiva(
+			leerValor(argumentos, "--description"),
+		),
+		visibilidad: leerVisibilidad(argumentos),
+		confirmacionPreResuelta: true,
+	};
 }
 
 /**
@@ -83,12 +93,13 @@ export function analizarEntradaDirecta(argumentos: readonly string[]): EntradaDi
  * reingreso interactivo (UC-001-E3, ARCHITECTURE §6.1, §6.2 y §6.3).
  */
 export async function ejecutarComandoCrearPlaylist(
-  argumentos: readonly string[]
+	argumentos: readonly string[],
 ): Promise<FinalizacionCreacion> {
-  const coordinador: CoordinadorCreacion = {
-    casoUso: componerCrearPlaylistVacia(),
-    peticiones: peticionesDeTerminal,
-    entradaDirecta: analizarEntradaDirecta(argumentos),
-  };
-  return ejecutarFlujoCreacion(coordinador);
+	const coordinador: CoordinadorCreacion = {
+		casoUso: componerCrearPlaylistVacia(),
+		peticiones: peticionesDeTerminal,
+		entradaDirecta: analizarEntradaDirecta(argumentos),
+		verificarSesion: verificarSesionParaCrearPlaylist,
+	};
+	return ejecutarFlujoCreacion(coordinador);
 }

@@ -9,7 +9,7 @@
  * Data (RNF-003). La política no espera por sí misma: `withRetry` ejecuta la
  * espera a través del puerto `Espera` inyectado (ADR-001).
  */
-import type { RetryPolicy } from '../retry/retry.js';
+import type { RetryPolicy } from "../retry/retry.js";
 
 /** Reintentos permitidos ante 429: 3, hasta 4 intentos en total (P-003, ADR-001). */
 const MAX_REINTENTOS = 3;
@@ -23,19 +23,20 @@ const ESTADO_LIMITE = 429;
  * la clase concreta que Data lanza, solo de estos campos.
  */
 export interface ErrorConEstado {
-  readonly estado: number;
-  readonly reintentoTras?: number;
+	readonly estado: number;
+	readonly reintentoTras?: number;
 }
 
 function esErrorConEstado(error: unknown): error is ErrorConEstado {
-  if (typeof error !== 'object' || error === null) {
-    return false;
-  }
-  const candidato = error as { estado?: unknown; reintentoTras?: unknown };
-  return (
-    typeof candidato.estado === 'number' &&
-    (candidato.reintentoTras === undefined || typeof candidato.reintentoTras === 'number')
-  );
+	if (typeof error !== "object" || error === null) {
+		return false;
+	}
+	const candidato = error as { estado?: unknown; reintentoTras?: unknown };
+	return (
+		typeof candidato.estado === "number" &&
+		(candidato.reintentoTras === undefined ||
+			typeof candidato.reintentoTras === "number")
+	);
 }
 
 /**
@@ -44,13 +45,16 @@ function esErrorConEstado(error: unknown): error is ErrorConEstado {
  * en su ausencia, sin temporizadores propios (ADR-001, UC-001-E2).
  */
 export const politicaReintento429: RetryPolicy<ErrorConEstado> = {
-  maxRetries: MAX_REINTENTOS,
-  matchesError: esErrorConEstado,
-  shouldRetry: (error, attempt) => attempt < MAX_REINTENTOS && error.estado === ESTADO_LIMITE,
-  getDelay: (error, _attempt, retryAfter) => {
-    const segundos = retryAfter ?? error.reintentoTras;
-    return segundos !== undefined && segundos > 0 ? segundos * 1000 : ESPERA_PREDETERMINADA_MS;
-  },
-  getRetryAfter: (error) => error.reintentoTras,
-  getStatus: (error) => error.estado,
+	maxRetries: MAX_REINTENTOS,
+	matchesError: esErrorConEstado,
+	shouldRetry: (error, attempt) =>
+		attempt < MAX_REINTENTOS && error.estado === ESTADO_LIMITE,
+	getDelay: (error, _attempt, retryAfter) => {
+		const segundos = retryAfter ?? error.reintentoTras;
+		return segundos !== undefined && segundos > 0
+			? segundos * 1000
+			: ESPERA_PREDETERMINADA_MS;
+	},
+	getRetryAfter: (error) => error.reintentoTras,
+	getStatus: (error) => error.estado,
 };

@@ -1,258 +1,135 @@
-# spoty2
+# Spoty
 
-CLI para autenticación con Spotify usando OAuth 2.0 Authorization Code con PKCE. Genera un binario único ejecutable sin necesidad de instalar Node.js.
+Spoty es un programa que se conecta con tu cuenta de Spotify para hacer dos cosas:
 
-## Características
+1. **Descargar la lista de canciones que marcaste con "Me gusta"** a un archivo en tu computadora.
+2. **Crear playlists vacías** nuevas en tu cuenta de Spotify.
 
-- ✅ Autenticación OAuth 2.0 con PKCE (segura para apps de escritorio)
-- ✅ Apertura automática del navegador + fallback manual
-- ✅ Persistencia de tokens en `data/tokens.json` con permisos restrictivos (0o600)
-- ✅ Logging técnico en `data/app.log` (rotación automática >5MB)
-- ✅ Reintentos automáticos con `Retry-After` en rate limiting (429)
-- ✅ Manejo diferenciado de errores: 401 (token expirado) vs 403 (acceso revocado)
-- ✅ Binario standalone (Node.js SEA) para distribución sin dependencias
-- ✅ 100% TypeScript, validado con Biome, testeado con Vitest
+Todo se usa desde una ventana de comandos (la terminal), siguiendo un menú con opciones numeradas.
 
-## Requisitos
+## Qué necesitas antes de empezar
 
-- Node.js 22+ (solo para desarrollo/build)
-- Cuenta de desarrollador en [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+- **Node.js versión 22 o superior** instalado. Si no lo tienes, descárgalo desde <https://nodejs.org> (elige la versión LTS) e instálalo como cualquier otro programa.
+- **Una cuenta de Spotify** (sirve la gratuita).
+- Este proyecto descargado en tu computadora.
 
-## Configuración Inicial
+## Instalación (solo la primera vez)
 
-### 1. Crear aplicación en Spotify Dashboard
-
-1. Ve a [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
-2. Crea una nueva aplicación
-3. En **Redirect URIs**, añade: `http://127.0.0.1:8888/callback`
-   - ⚠️ **Importante**: Debe usar `127.0.0.1` (no `localhost`)
-   - El puerto puede ser cualquier puerto libre (ej. 8888, 3000, 8080)
-4. Copia el **Client ID**
-
-### 2. Configurar variables de entorno
+1. Abre una terminal en la carpeta del proyecto.
+2. Ejecuta esto para instalar lo necesario (solo tarda la primera vez):
 
 ```bash
-# Linux/macOS
-export SPOTIFY_CLIENT_ID="tu-client-id"
-export SPOTIFY_REDIRECT_URI="http://127.0.0.1:8888/callback"
-
-# Windows (PowerShell)
-$env:SPOTIFY_CLIENT_ID="tu-client-id"
-$env:SPOTIFY_REDIRECT_URI="http://127.0.0.1:8888/callback"
-
-# Windows (CMD)
-set SPOTIFY_CLIENT_ID=tu-client-id
-set SPOTIFY_REDIRECT_URI=http://127.0.0.1:8888/callback
-```
-
-> **Nota**: Si no configuras las variables, la CLI te las pedirá interactivamente al ejecutar `spoty connect`.
-
-## Instalación y Desarrollo
-
-```bash
-# Instalar dependencias
 npm install
+```
 
-# Ejecutar en modo desarrollo
+## Conectar con Spotify (primera vez)
+
+Para que el programa pueda entrar a tu cuenta, Spotify pide que registres una "aplicación". Es gratis y solo se hace una vez:
+
+1. Entra a <https://developer.spotify.com/dashboard> e inicia sesión con tu cuenta de Spotify.
+2. Crea una aplicación nueva (botón "Create app").
+3. En el campo **Redirect URIs** escribe exactamente esto y guarda:
+
+```text
+http://127.0.0.1:8888/callback
+```
+
+4. Copia el **Client ID** que te muestra la página.
+
+Ahora abre la terminal en la carpeta del proyecto y ejecuta:
+
+```bash
 npm run dev
-
-# Ejecutar tests
-npm test
-
-# Linting y formateo
-npm run lint
-
-# Verificar tipos
-npx tsc --noEmit
 ```
 
-## Ejecución después del Build
+Elige la opción **1. Conectar con Spotify**. El programa te va a pedir dos datos:
+
+- Tu **Client ID** (el que copiaste).
+- La **Redirect URI** (`http://127.0.0.1:8888/callback`).
+
+Se abrirá tu navegador para que inicies sesión en Spotify y autorices la aplicación. Al volver a la terminal verás un mensaje de que la conexión fue exitosa. A partir de ahí ya no tienes que repetir este paso, salvo que cierres la sesión.
+
+> Consejo: si ya configuraste las variables `SPOTIFY_CLIENT_ID` y `SPOTIFY_REDIRECT_URI` en tu sistema, el programa las usa directamente y no te las pide.
+
+## Cómo usarlo
+
+Inicia el programa siempre con:
 
 ```bash
-# Compilar TypeScript
-npm run build
-
-# Ejecutar el CLI compilado directamente con Node.js
-node dist/cli.js
-
-# O usando npx (usa el binario definido en package.json)
-npx spoty
-
-# O si instalaste globalmente (npm link / npm install -g .)
-spoty
+npm run dev
 ```
 
-## Compilación a Binario Standalone
+Verás este menú:
 
-> **Estado (2026-10-07):** el empaquetado como binario único (Node.js SEA) es una **restricción de diseño** vigente —ver `AGENTS.md` §7 y `docs/constitution.md` (principio 7)—, pero el flujo de build del binario **aún no está configurado en este repositorio**: no existe `sea-config.json`, no hay script de empaquetado en `package.json` ni dependencia de inyección (`postject`). Por tanto, el comando `node --experimental-sea-config sea-config.json` **no es ejecutable todavía**.
-
-Build disponible hoy:
-
-```bash
-# Compilar TypeScript
-npm run build
-```
-
-La configuración `sea-config.json` y los pasos de inyección se crearán cuando se especifique el flujo de release del binario (feature futura). El diseño del proyecto se mantiene compatible con esa compilación futura.
-
-## Uso
-
-### Modo Interactivo (menú)
-
-```bash
-spoty
-```
-
-Muestra un menú con opciones:
-```
-=== spoty - Conexión a Spotify ===
-
-Selecciona una opción:
+```text
 1. Conectar con Spotify
 2. Ver estado de conexión
 3. Descargar biblioteca
+4. Crear playlist vacía
 9. Cerrar sesión
 0. Salir
-(navega con 0-3,9, Ctrl+C para cancelar)
 ```
 
-### Comandos Directos
+Escribe el número de la opción y pulsa Enter.
+
+- **1. Conectar con Spotify**: inicia sesión (solo la primera vez o si la sesión caducó).
+- **2. Ver estado de conexión**: te dice si hay una sesión activa y con qué usuario.
+- **3. Descargar biblioteca**: guarda tus canciones con "Me gusta" en un archivo dentro de la carpeta `downloads/`. Al terminar te muestra cuántas canciones descargó y dónde quedó el archivo.
+- **4. Crear playlist vacía**: te pide el nombre, una descripción opcional y si la quieres pública o privada. Después te muestra un resumen y debes confirmar escribiendo `s`. Si ya tienes una playlist con ese nombre, te deja cambiarlo, crearla igual o cancelar.
+- **9. Cerrar sesión**: borra tu sesión de esta computadora.
+- **0. Salir**: cierra el programa (antes te pide confirmación).
+
+> Nota: las opciones 3 y 4 necesitan que hayas iniciado sesión primero. Si no lo hiciste, el programa te lo avisa y no hace nada más.
+
+## Atajos (opcional)
+
+Si prefieres no entrar al menú, puedes ejecutar acciones directas:
 
 ```bash
-# Iniciar flujo de autenticación
-spoty connect
+# Iniciar sesión
+npm run dev -- connect
 
-# Ver estado de la sesión actual
-spoty status
+# Ver el estado de la sesión
+npm run dev -- status
 
-# Descargar biblioteca de canciones
-spoty download-songs [--output-dir <ruta> | -o <ruta>]
+# Descargar biblioteca (se guarda en la carpeta downloads/)
+npm run dev -- download-songs
 
-# Cerrar sesión (borra tokens guardados)
-spoty logout
+# Crear una playlist pública llamada "Mis favoritas"
+npm run dev -- create-new-playlist --name "Mis favoritas" --public
 
-# Ayuda
-spoty --help
+# Cerrar sesión
+npm run dev -- logout
 ```
 
-## Flujo de Autenticación
+## Versión compilada (opcional, más rápida)
 
-1. Ejecuta `spoty connect` (o elige opción 1 en el menú)
-2. Se abre automáticamente el navegador en la página de autorización de Spotify
-3. Inicia sesión en Spotify y autoriza la aplicación
-4. La CLI recibe el callback, intercambia el código por tokens y los guarda
-5. Muestra mensaje de éxito: `Conectado correctamente a Spotify como {nombre} ({email})`
+Si prefieres no usar `npm run dev`, puedes compilar el programa una vez y ejecutarlo directamente con Node.js:
 
-### Descarga de biblioteca de canciones
-
-Ejecuta `spoty download-songs` (o selecciona la opción 3 en el menú interactivo) para descargar todo el listado de canciones guardadas ("Me gusta") de tu biblioteca de Spotify. El sistema:
-
-1. Valida sesión OAuth existente (reutiliza tokens guardados en `data/tokens.json`)
-2. Obtiene access token válido (refresh automático si ha expirado)
-3. Descarga paginada todas las tracks usando `GET /me/tracks` (máx 50 por página)
-4. Maneja rate limits (HTTP 429) con backoff exponencial y respeto a `Retry-After`
-5. Refresca token automáticamente si expira durante la descarga
-6. Guarda los resultados en la carpeta `downloads/` con nombre `YYYY-MM-DD_HH-mm-ss-download_songs.json`
-7. Muestra un spinner de progreso durante la descarga y mensaje final con ruta y número de tracks
-
-**Nombre de archivo**: `YYYY-MM-DD_HH-mm-ss-download_songs.json` (fecha y hora local al iniciar la descarga)
-
-**Opciones**:
-- `--output-dir <ruta>` / `-o <ruta>`: Carpeta personalizada (por defecto: `downloads/`)
-
-### Si el navegador no se abre automáticamente
-
-La CLI muestra la URL de autorización en consola. Cópiala y pégala manualmente en tu navegador.
-
-## Estructura de Archivos
-
-```
-spoty2/
-├ data/
-│   ├── tokens.json    # Tokens OAuth (permisos 0o600)
-│   └── app.log        # Log técnico (rotación >5MB)
-├ downloads/           # Archivos JSON de descargas (se crea automáticamente)
-├ docs/
-│   ├── constitution.md    # Principios innegociables SDD
-│   ├── rules.md           # Reglas de integración API Spotify
-│   ├── agent.md           # Identidad y rol del agente
-│   └── open-api-schema.yaml  # Especificación OpenAPI de Spotify
-├ specs/
-│   ├── 001-spoty2-mvp/
-│   │   ├── plan.md          # Plan de implementación N-Tier y RFs
-│   │   ├── resumen-fixes.md # Correcciones UX/UI y no considerado inicialmente
-│   │   └── spec.md          # Especificación funcional del MVP
-│   └── 002-download-songs/
-│       ├── ACCEPTANCE_CRITERIA.feature
-│       ├── ARCHITECTURE.md
-│       ├── REQUIREMENTS.md
-│       ├── SPECS.md
-│       └── USE_CASES.md
-├ src/
-│   ├── presentation/      # CLI, prompts, mensajes
-│   ├── business/
-│   │   ├── auth/          # Flujo OAuth 2.0 con PKCE
-│   │   ├── download-songs.ts  # Descarga biblioteca Spotify
-│   │   ├── transform.js     # Transformación de datos
-│   │   └── types/
-│   │       └── download-songs.types.ts
-│   └── data/              # HTTP, storage, logging
-└── tests/                 # Tests unitarios (Vitest)
-```
-
-## Scopes Solicitados
-
-La aplicación solicita los siguientes permisos (pre-aprobados para evitar re-consentimiento futuro):
-
-- `user-read-private` — Perfil privado del usuario
-- `user-read-email` — Email del usuario
-- `user-library-read` — Biblioteca guardada (lectura)
-- `user-library-modify` — Biblioteca guardada (escritura)
-- `playlist-read-private` — Playlists privadas (lectura)
-- `playlist-modify-private` — Playlists privadas (escritura)
-- `playlist-modify-public` — Playlists públicas (escritura)
-- `playlist-read-collaborative` — Playlists colaborativas (lectura)
-
-## Códigos de Salida
-
-| Código | Significado |
-|--------|-------------|
-| `0` | Éxito (incluye cancelación voluntaria) |
-| `1` | Error de autenticación/red no recuperable |
-| `2` | Error de configuración (env vars faltantes/inválidas) |
-| `3` | Error de recurso (puerto ocupado, FS) |
-| `130` | Interrupción SIGINT (Ctrl+C) |
-
-## Solución de Problemas
-
-### "Puerto X en uso"
 ```bash
-# Cambia el puerto en SPOTIFY_REDIRECT_URI y en Spotify Dashboard
-export SPOTIFY_REDIRECT_URI="http://127.0.0.1:9999/callback"
+# Compilar (solo hace falta repetirlo si cambia el código)
+npm run build
+
+# Abrir el menú interactivo
+node dist/cli.js
+
+# O ejecutar un comando directo (aquí NO se usa --)
+node dist/cli.js connect
+node dist/cli.js download-songs
 ```
 
-### "Redirect URI inválida: localhost no permitido"
-- Usa `http://127.0.0.1:PUERTO/callback` (no `localhost`)
-- Actualiza la misma URI en Spotify Dashboard
+Funciona igual que `npm run dev`, pero usa la versión compilada en la carpeta `dist/`.
 
-### "Error al conectar con Spotify: ... Ver data/app.log"
-- Revisa `data/app.log` para detalles técnicos
-- Errores comunes: credenciales incorrectas, red, rate limiting
+## Dónde quedan tus cosas
 
-### Tokens corruptos o sesión inválida
-```bash
-spoty logout
-spoty connect
-```
+- **Tu sesión**: se guarda en `data/tokens.json` en la carpeta del proyecto. No la compartas con nadie.
+- **Tus descargas**: quedan en la carpeta `downloads/`, en archivos con la fecha y hora en el nombre.
+- El programa nunca te pide tu contraseña de Spotify: el inicio de sesión siempre se hace en la página oficial de Spotify desde tu navegador.
 
-## Seguridad
+## Si algo sale mal
 
-- Tokens guardados en `data/tokens.json` con permisos `0o600` (solo owner read/write)
-- En Windows los permisos restrictivos se aplican automáticamente
-- `client_secret` **nunca** se almacena en el código ni en disco
-- PKCE S256 evita interceptación del código de autorización
-- Logs no contienen tokens completos (solo prefijos/sufijos si debug)
-
-## Licencia
-
-MIT
+- **"No hay sesión activa" o "Configuración requerida"**: ejecuta el programa y elige la opción **1** para iniciar sesión de nuevo. Las sesiones pueden caducar o revocarse con el tiempo.
+- **"Puerto 8888 en uso"**: otra aplicación está usando ese puerto. Ciérrala o usa otro puerto (por ejemplo `http://127.0.0.1:9999/callback`), pero recuerda poner la misma dirección en el Dashboard de Spotify y cuando el programa te la pida.
+- **"Redirect URI inválida" o algo sobre "localhost"**: la dirección debe ser exactamente `http://127.0.0.1:puerto/callback` (con `127.0.0.1`, no con `localhost`) y debe coincidir con la que registraste en el Dashboard de Spotify.
+- **La descarga falla a la mitad**: vuelve a intentarlo; si el error menciona la sesión, inicia sesión de nuevo con la opción **1**.
+- **¿Empezar de cero con la sesión?**: elige la opción **9** (cerrar sesión) y luego la opción **1** (conectar).

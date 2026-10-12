@@ -21,45 +21,45 @@
  * presentación (RNF-002, RNF-003, RNF-006).
  */
 import type {
-  DesenlaceConfirmacion,
-  EntradaVisibilidad,
-  ErrorValidacion,
-  ResultadoCreacion,
-  SolicitudCreacion,
-} from '../business/playlists/types.js';
+	DesenlaceConfirmacion,
+	EntradaVisibilidad,
+	ErrorValidacion,
+	ResultadoCreacion,
+	SolicitudCreacion,
+} from "../business/playlists/types.js";
 import {
-  recortarNombre,
-  resolverDescripcionEfectiva,
-  resolverVisibilidad,
-} from '../business/playlists/validacion.js';
-import type { CasoUsoCrearPlaylist } from './composicion-crear-playlist.js';
-import { confirm, warning } from './console.js';
-import { MESSAGES } from './messages.js';
+	recortarNombre,
+	resolverDescripcionEfectiva,
+	resolverVisibilidad,
+} from "../business/playlists/validacion.js";
+import type { CasoUsoCrearPlaylist } from "./composicion-crear-playlist.js";
+import { confirm, warning } from "./console.js";
+import { MESSAGES } from "./messages.js";
 import {
-  type EleccionDuplicados,
-  type EleccionVisibilidad,
-  type EntradaPrompt,
-  type ResumenCreacion,
-  confirmarCreacion,
-  interpretarConfirmacionS,
-  promptDescripcionPlaylist,
-  promptModificarDescripcion,
-  promptNombrePlaylist,
-  promptOpcionDuplicados,
-  promptVisibilidadPlaylist,
-  showError,
-  showMessage,
-} from './prompts.js';
+	type EleccionDuplicados,
+	type EleccionVisibilidad,
+	type EntradaPrompt,
+	type ResumenCreacion,
+	confirmarCreacion,
+	interpretarConfirmacionS,
+	promptDescripcionPlaylist,
+	promptModificarDescripcion,
+	promptNombrePlaylist,
+	promptOpcionDuplicados,
+	promptVisibilidadPlaylist,
+	showError,
+	showMessage,
+} from "./prompts.js";
 
 /** Peticiones inyectadas del flujo de creación (TASK-012); en pruebas se doblan. */
 export interface PeticionesCreacion {
-  nombre(): Promise<EntradaPrompt>;
-  descripcion(): Promise<EntradaPrompt>;
-  visibilidad(): Promise<EleccionVisibilidad>;
-  /** Con `resumen` se antepone el resumen de los datos efectivos (DISC-006). */
-  confirmacion(resumen?: ResumenCreacion): Promise<EntradaPrompt>;
-  opcionDuplicados(): Promise<EleccionDuplicados>;
-  modificacion(): Promise<EntradaPrompt>;
+	nombre(): Promise<EntradaPrompt>;
+	descripcion(): Promise<EntradaPrompt>;
+	visibilidad(): Promise<EleccionVisibilidad>;
+	/** Con `resumen` se antepone el resumen de los datos efectivos (DISC-006). */
+	confirmacion(resumen?: ResumenCreacion): Promise<EntradaPrompt>;
+	opcionDuplicados(): Promise<EleccionDuplicados>;
+	modificacion(): Promise<EntradaPrompt>;
 }
 
 /**
@@ -69,17 +69,24 @@ export interface PeticionesCreacion {
  * interactiva posterior la convierte en solicitud por el canal (reingreso).
  */
 export interface EntradaDirecta {
-  readonly nombre: string;
-  readonly descripcion?: string;
-  readonly visibilidad: EntradaVisibilidad;
-  readonly confirmacionPreResuelta: boolean;
+	readonly nombre: string;
+	readonly descripcion?: string;
+	readonly visibilidad: EntradaVisibilidad;
+	readonly confirmacionPreResuelta: boolean;
 }
 
 /** Dependencias del coordinador: caso de uso y peticiones, ambas inyectadas. */
 export interface CoordinadorCreacion {
-  readonly casoUso: CasoUsoCrearPlaylist;
-  readonly peticiones: PeticionesCreacion;
-  readonly entradaDirecta?: EntradaDirecta;
+	readonly casoUso: CasoUsoCrearPlaylist;
+	readonly peticiones: PeticionesCreacion;
+	readonly entradaDirecta?: EntradaDirecta;
+	/**
+	 * Verificación previa de sesión (UC-001-E1): cuando se aporta, el
+	 * coordinador comprueba que la cuenta esté conectada antes de pedir el
+	 * formulario o de invocar la petición; sin sesión vigente presenta el
+	 * literal `noSessionError` y finaliza como error sin pedir nada.
+	 */
+	readonly verificarSesion?: () => Promise<boolean>;
 }
 
 /**
@@ -88,57 +95,60 @@ export interface CoordinadorCreacion {
  * o error ya presentado con su literal exacto.
  */
 export type FinalizacionCreacion =
-  | { readonly estado: 'creada' }
-  | { readonly estado: 'cancelada' }
-  | { readonly estado: 'error' };
+	| { readonly estado: "creada" }
+	| { readonly estado: "cancelada" }
+	| { readonly estado: "error" };
 
-const CREADA: FinalizacionCreacion = { estado: 'creada' };
-const CANCELADA: FinalizacionCreacion = { estado: 'cancelada' };
-const ERROR: FinalizacionCreacion = { estado: 'error' };
+const CREADA: FinalizacionCreacion = { estado: "creada" };
+const CANCELADA: FinalizacionCreacion = { estado: "cancelada" };
+const ERROR: FinalizacionCreacion = { estado: "error" };
 
 /** Literales exactos de error por desenlace (TASK-011, RNF-002, UC-001-E1/E2). */
 const LITERALES_DE_ERROR = {
-  sinSesion: MESSAGES.playlist.noSessionError,
-  sesionCaducada: MESSAGES.playlist.sessionExpiredError,
-  permisosInsuficientes: MESSAGES.playlist.permissionsError,
-  limiteAgotado: MESSAGES.playlist.rateLimitError,
-  falloInesperado: MESSAGES.playlist.unexpectedError,
+	sinSesion: MESSAGES.playlist.noSessionError,
+	sesionCaducada: MESSAGES.playlist.sessionExpiredError,
+	permisosInsuficientes: MESSAGES.playlist.permissionsError,
+	limiteAgotado: MESSAGES.playlist.rateLimitError,
+	falloInesperado: MESSAGES.playlist.unexpectedError,
 } as const;
 
 /** Datos en bruto de la solicitud; su validez la decide Business (RNF-003). */
 interface DatosSolicitud {
-  readonly nombre: string;
-  readonly descripcion?: string;
-  readonly visibilidad: EntradaVisibilidad;
+	readonly nombre: string;
+	readonly descripcion?: string;
+	readonly visibilidad: EntradaVisibilidad;
 }
 
 /** Estado del flujo de una invocación del coordinador. */
 interface Flujo {
-  readonly casoUso: CasoUsoCrearPlaylist;
-  readonly peticiones: PeticionesCreacion;
-  readonly entradaDirecta?: EntradaDirecta;
-  /** `true` mientras la confirmación siga pre-resuelta (comando directo sin reingreso). */
-  canalPreResuelto: boolean;
+	readonly casoUso: CasoUsoCrearPlaylist;
+	readonly peticiones: PeticionesCreacion;
+	readonly entradaDirecta?: EntradaDirecta;
+	/** `true` mientras la confirmación siga pre-resuelta (comando directo sin reingreso). */
+	canalPreResuelto: boolean;
 }
 
 /** Paso del bucle: reinvocar el caso de uso o finalizar el flujo. */
 type PasoFlujo =
-  | {
-      readonly tipo: 'reinvocar';
-      readonly solicitud: SolicitudCreacion;
-      readonly datos: DatosSolicitud;
-    }
-  | { readonly tipo: 'finalizar'; readonly finalizacion: FinalizacionCreacion };
+	| {
+			readonly tipo: "reinvocar";
+			readonly solicitud: SolicitudCreacion;
+			readonly datos: DatosSolicitud;
+	  }
+	| { readonly tipo: "finalizar"; readonly finalizacion: FinalizacionCreacion };
 
 const finalizar = (finalizacion: FinalizacionCreacion): PasoFlujo => ({
-  tipo: 'finalizar',
-  finalizacion,
+	tipo: "finalizar",
+	finalizacion,
 });
 
-const reinvocar = (solicitud: SolicitudCreacion, datos: DatosSolicitud): PasoFlujo => ({
-  tipo: 'reinvocar',
-  solicitud,
-  datos,
+const reinvocar = (
+	solicitud: SolicitudCreacion,
+	datos: DatosSolicitud,
+): PasoFlujo => ({
+	tipo: "reinvocar",
+	solicitud,
+	datos,
 });
 
 /**
@@ -149,15 +159,15 @@ const reinvocar = (solicitud: SolicitudCreacion, datos: DatosSolicitud): PasoFlu
  * antes de solicitar la confirmación— se confirma sin resumen (formato aprobado).
  */
 function resumenDe(datos: DatosSolicitud): ResumenCreacion | undefined {
-  const visibilidad = resolverVisibilidad(datos.visibilidad);
-  if (typeof visibilidad !== 'string') {
-    return undefined;
-  }
-  return {
-    nombreEfectivo: recortarNombre(datos.nombre),
-    visibilidad,
-    descripcionEfectiva: resolverDescripcionEfectiva(datos.descripcion),
-  };
+	const visibilidad = resolverVisibilidad(datos.visibilidad);
+	if (typeof visibilidad !== "string") {
+		return undefined;
+	}
+	return {
+		nombreEfectivo: recortarNombre(datos.nombre),
+		visibilidad,
+		descripcionEfectiva: resolverDescripcionEfectiva(datos.descripcion),
+	};
 }
 
 /**
@@ -167,30 +177,34 @@ function resumenDe(datos: DatosSolicitud): ResumenCreacion | undefined {
  * solicita el resumen y `(s/N): ` y devuelve `cancelada` ante `N`, otra
  * respuesta o `Ctrl+C`, sin crear ni registrar.
  */
-async function resolverCanal(flujo: Flujo, datos: DatosSolicitud): Promise<DesenlaceConfirmacion> {
-  if (flujo.canalPreResuelto) {
-    return 'confirmada';
-  }
-  const respuesta = await flujo.peticiones.confirmacion(resumenDe(datos));
-  if (respuesta.estado === 'abortado') {
-    return 'cancelada';
-  }
-  return interpretarConfirmacionS(respuesta.valor) ? 'confirmada' : 'cancelada';
+async function resolverCanal(
+	flujo: Flujo,
+	datos: DatosSolicitud,
+): Promise<DesenlaceConfirmacion> {
+	if (flujo.canalPreResuelto) {
+		return "confirmada";
+	}
+	const respuesta = await flujo.peticiones.confirmacion(resumenDe(datos));
+	if (respuesta.estado === "abortado") {
+		return "cancelada";
+	}
+	return interpretarConfirmacionS(respuesta.valor) ? "confirmada" : "cancelada";
 }
 
 /** Toda petición interactiva convierte la confirmación en solicitud por el canal. */
 async function pedir<T>(flujo: Flujo, peticion: () => Promise<T>): Promise<T> {
-  flujo.canalPreResuelto = false;
-  return peticion();
+	flujo.canalPreResuelto = false;
+	return peticion();
 }
 
 function crearFlujo(coordinador: CoordinadorCreacion): Flujo {
-  return {
-    casoUso: coordinador.casoUso,
-    peticiones: coordinador.peticiones,
-    entradaDirecta: coordinador.entradaDirecta,
-    canalPreResuelto: coordinador.entradaDirecta?.confirmacionPreResuelta === true,
-  };
+	return {
+		casoUso: coordinador.casoUso,
+		peticiones: coordinador.peticiones,
+		entradaDirecta: coordinador.entradaDirecta,
+		canalPreResuelto:
+			coordinador.entradaDirecta?.confirmacionPreResuelta === true,
+	};
 }
 
 /**
@@ -198,17 +212,17 @@ function crearFlujo(coordinador: CoordinadorCreacion): Flujo {
  * invocación: así la confirmación puede presentar su resumen (DISC-006).
  */
 function construirSolicitud(
-  datos: DatosSolicitud,
-  flujo: Flujo,
-  duplicadoAceptado = false
+	datos: DatosSolicitud,
+	flujo: Flujo,
+	duplicadoAceptado = false,
 ): SolicitudCreacion {
-  return {
-    nombre: datos.nombre,
-    descripcion: datos.descripcion,
-    visibilidad: datos.visibilidad,
-    canalConfirmacion: async () => resolverCanal(flujo, datos),
-    ...(duplicadoAceptado ? { duplicadoAceptado: true } : {}),
-  };
+	return {
+		nombre: datos.nombre,
+		descripcion: datos.descripcion,
+		visibilidad: datos.visibilidad,
+		canalConfirmacion: async () => resolverCanal(flujo, datos),
+		...(duplicadoAceptado ? { duplicadoAceptado: true } : {}),
+	};
 }
 
 /**
@@ -217,31 +231,31 @@ function construirSolicitud(
  * `Ctrl+C` en cualquier petición termina el flujo sin invocar el caso de uso.
  */
 async function datosIniciales(flujo: Flujo): Promise<DatosSolicitud | null> {
-  const entrada = flujo.entradaDirecta;
-  if (entrada !== undefined) {
-    return {
-      nombre: entrada.nombre,
-      descripcion: entrada.descripcion,
-      visibilidad: entrada.visibilidad,
-    };
-  }
-  const nombre = await pedir(flujo, () => flujo.peticiones.nombre());
-  if (nombre.estado === 'abortado') {
-    return null;
-  }
-  const descripcion = await pedir(flujo, () => flujo.peticiones.descripcion());
-  if (descripcion.estado === 'abortado') {
-    return null;
-  }
-  const visibilidad = await pedir(flujo, () => flujo.peticiones.visibilidad());
-  if (visibilidad.estado === 'abortado') {
-    return null;
-  }
-  return {
-    nombre: nombre.valor,
-    descripcion: descripcion.valor,
-    visibilidad: visibilidad.visibilidad,
-  };
+	const entrada = flujo.entradaDirecta;
+	if (entrada !== undefined) {
+		return {
+			nombre: entrada.nombre,
+			descripcion: entrada.descripcion,
+			visibilidad: entrada.visibilidad,
+		};
+	}
+	const nombre = await pedir(flujo, () => flujo.peticiones.nombre());
+	if (nombre.estado === "abortado") {
+		return null;
+	}
+	const descripcion = await pedir(flujo, () => flujo.peticiones.descripcion());
+	if (descripcion.estado === "abortado") {
+		return null;
+	}
+	const visibilidad = await pedir(flujo, () => flujo.peticiones.visibilidad());
+	if (visibilidad.estado === "abortado") {
+		return null;
+	}
+	return {
+		nombre: nombre.valor,
+		descripcion: descripcion.valor,
+		visibilidad: visibilidad.visibilidad,
+	};
 }
 
 /**
@@ -250,21 +264,21 @@ async function datosIniciales(flujo: Flujo): Promise<DatosSolicitud | null> {
  * inválida muestra su literal y no continúa hasta corregir la invocación.
  */
 async function evaluarValidacion(
-  resultado: ErrorValidacion,
-  datos: DatosSolicitud,
-  flujo: Flujo
+	resultado: ErrorValidacion,
+	datos: DatosSolicitud,
+	flujo: Flujo,
 ): Promise<PasoFlujo> {
-  if (resultado.campo === 'visibilidad') {
-    showError(MESSAGES.playlist.visibilityFlagError);
-    return finalizar(ERROR);
-  }
-  showError(MESSAGES.playlist.nameLengthError);
-  const nombre = await pedir(flujo, () => flujo.peticiones.nombre());
-  if (nombre.estado === 'abortado') {
-    return finalizar(CANCELADA);
-  }
-  const datosNuevo = { ...datos, nombre: nombre.valor };
-  return reinvocar(construirSolicitud(datosNuevo, flujo), datosNuevo);
+	if (resultado.campo === "visibilidad") {
+		showError(MESSAGES.playlist.visibilityFlagError);
+		return finalizar(ERROR);
+	}
+	showError(MESSAGES.playlist.nameLengthError);
+	const nombre = await pedir(flujo, () => flujo.peticiones.nombre());
+	if (nombre.estado === "abortado") {
+		return finalizar(CANCELADA);
+	}
+	const datosNuevo = { ...datos, nombre: nombre.valor };
+	return reinvocar(construirSolicitud(datosNuevo, flujo), datosNuevo);
 }
 
 /**
@@ -272,33 +286,41 @@ async function evaluarValidacion(
  * descripción y visibilidad; con `s` se repiten esas peticiones y con otra
  * respuesta se conservan los valores antes de reinvocar sin duplicadoAceptado.
  */
-async function modificarTrasDuplicado(datos: DatosSolicitud, flujo: Flujo): Promise<PasoFlujo> {
-  const nombre = await pedir(flujo, () => flujo.peticiones.nombre());
-  if (nombre.estado === 'abortado') {
-    return finalizar(CANCELADA);
-  }
-  const modificacion = await pedir(flujo, () => flujo.peticiones.modificacion());
-  if (modificacion.estado === 'abortado') {
-    return finalizar(CANCELADA);
-  }
-  const datosNuevo = { ...datos, nombre: nombre.valor };
-  if (!interpretarConfirmacionS(modificacion.valor)) {
-    return reinvocar(construirSolicitud(datosNuevo, flujo), datosNuevo);
-  }
-  const descripcion = await pedir(flujo, () => flujo.peticiones.descripcion());
-  if (descripcion.estado === 'abortado') {
-    return finalizar(CANCELADA);
-  }
-  const visibilidad = await pedir(flujo, () => flujo.peticiones.visibilidad());
-  if (visibilidad.estado === 'abortado') {
-    return finalizar(CANCELADA);
-  }
-  const datosModificados = {
-    nombre: nombre.valor,
-    descripcion: descripcion.valor,
-    visibilidad: visibilidad.visibilidad,
-  };
-  return reinvocar(construirSolicitud(datosModificados, flujo), datosModificados);
+async function modificarTrasDuplicado(
+	datos: DatosSolicitud,
+	flujo: Flujo,
+): Promise<PasoFlujo> {
+	const nombre = await pedir(flujo, () => flujo.peticiones.nombre());
+	if (nombre.estado === "abortado") {
+		return finalizar(CANCELADA);
+	}
+	const modificacion = await pedir(flujo, () =>
+		flujo.peticiones.modificacion(),
+	);
+	if (modificacion.estado === "abortado") {
+		return finalizar(CANCELADA);
+	}
+	const datosNuevo = { ...datos, nombre: nombre.valor };
+	if (!interpretarConfirmacionS(modificacion.valor)) {
+		return reinvocar(construirSolicitud(datosNuevo, flujo), datosNuevo);
+	}
+	const descripcion = await pedir(flujo, () => flujo.peticiones.descripcion());
+	if (descripcion.estado === "abortado") {
+		return finalizar(CANCELADA);
+	}
+	const visibilidad = await pedir(flujo, () => flujo.peticiones.visibilidad());
+	if (visibilidad.estado === "abortado") {
+		return finalizar(CANCELADA);
+	}
+	const datosModificados = {
+		nombre: nombre.valor,
+		descripcion: descripcion.valor,
+		visibilidad: visibilidad.visibilidad,
+	};
+	return reinvocar(
+		construirSolicitud(datosModificados, flujo),
+		datosModificados,
+	);
 }
 
 /**
@@ -308,56 +330,58 @@ async function modificarTrasDuplicado(datos: DatosSolicitud, flujo: Flujo): Prom
  * `0` se muestra la cancelación sin invocar el caso de uso ni añadir registro.
  */
 async function evaluarDuplicado(
-  nombreEfectivo: string,
-  datos: DatosSolicitud,
-  flujo: Flujo
+	nombreEfectivo: string,
+	datos: DatosSolicitud,
+	flujo: Flujo,
 ): Promise<PasoFlujo> {
-  showMessage(warning(MESSAGES.playlist.duplicate(nombreEfectivo)));
-  const eleccion = await pedir(flujo, () => flujo.peticiones.opcionDuplicados());
-  if (eleccion.estado === 'abortado') {
-    return finalizar(CANCELADA);
-  }
-  if (eleccion.opcion === '0') {
-    showMessage(MESSAGES.playlist.cancelled);
-    return finalizar(CANCELADA);
-  }
-  if (eleccion.opcion === '2') {
-    return reinvocar(construirSolicitud(datos, flujo, true), datos);
-  }
-  return modificarTrasDuplicado(datos, flujo);
+	showMessage(warning(MESSAGES.playlist.duplicate(nombreEfectivo)));
+	const eleccion = await pedir(flujo, () =>
+		flujo.peticiones.opcionDuplicados(),
+	);
+	if (eleccion.estado === "abortado") {
+		return finalizar(CANCELADA);
+	}
+	if (eleccion.opcion === "0") {
+		showMessage(MESSAGES.playlist.cancelled);
+		return finalizar(CANCELADA);
+	}
+	if (eleccion.opcion === "2") {
+		return reinvocar(construirSolicitud(datos, flujo, true), datos);
+	}
+	return modificarTrasDuplicado(datos, flujo);
 }
 
 /** Presenta cada desenlace con su literal exacto (TASK-011, AC-001, AC-004). */
 async function evaluarDesenlace(
-  resultado: ResultadoCreacion,
-  datos: DatosSolicitud,
-  flujo: Flujo
+	resultado: ResultadoCreacion,
+	datos: DatosSolicitud,
+	flujo: Flujo,
 ): Promise<PasoFlujo> {
-  switch (resultado.resultado) {
-    case 'exito':
-      showMessage(
-        confirm(
-          MESSAGES.playlist.created(
-            resultado.nombreEfectivo,
-            resultado.visibilidad,
-            resultado.descripcionEfectiva,
-            resultado.identificador,
-            resultado.enlace
-          )
-        )
-      );
-      return finalizar(CREADA);
-    case 'errorValidacion':
-      return evaluarValidacion(resultado, datos, flujo);
-    case 'duplicado':
-      return evaluarDuplicado(resultado.nombreEfectivo, datos, flujo);
-    case 'cancelado':
-      // BR-007: retorno al menú o fin del flujo sin registrar ni literales.
-      return finalizar(CANCELADA);
-    default:
-      showError(LITERALES_DE_ERROR[resultado.resultado]);
-      return finalizar(ERROR);
-  }
+	switch (resultado.resultado) {
+		case "exito":
+			showMessage(
+				confirm(
+					MESSAGES.playlist.created(
+						resultado.nombreEfectivo,
+						resultado.visibilidad,
+						resultado.descripcionEfectiva,
+						resultado.identificador,
+						resultado.enlace,
+					),
+				),
+			);
+			return finalizar(CREADA);
+		case "errorValidacion":
+			return evaluarValidacion(resultado, datos, flujo);
+		case "duplicado":
+			return evaluarDuplicado(resultado.nombreEfectivo, datos, flujo);
+		case "cancelado":
+			// BR-007: retorno al menú o fin del flujo sin registrar ni literales.
+			return finalizar(CANCELADA);
+		default:
+			showError(LITERALES_DE_ERROR[resultado.resultado]);
+			return finalizar(ERROR);
+	}
 }
 
 /**
@@ -367,32 +391,39 @@ async function evaluarDesenlace(
  * (UC-001, UC-001-A1, UC-001-E3; ARCHITECTURE §6.2, §6.4, §6.5, §6.7).
  */
 export async function ejecutarFlujoCreacion(
-  coordinador: CoordinadorCreacion
+	coordinador: CoordinadorCreacion,
 ): Promise<FinalizacionCreacion> {
-  const flujo = crearFlujo(coordinador);
-  const datosInicia = await datosIniciales(flujo);
-  if (datosInicia === null) {
-    return CANCELADA;
-  }
-  let solicitud = construirSolicitud(datosInicia, flujo);
-  let datos = datosInicia;
-  for (;;) {
-    const resultado = await flujo.casoUso(solicitud);
-    const paso = await evaluarDesenlace(resultado, datos, flujo);
-    if (paso.tipo === 'finalizar') {
-      return paso.finalizacion;
-    }
-    solicitud = paso.solicitud;
-    datos = paso.datos;
-  }
+	if (coordinador.verificarSesion !== undefined) {
+		const sesionVigente = await coordinador.verificarSesion();
+		if (!sesionVigente) {
+			showError(MESSAGES.playlist.noSessionError);
+			return ERROR;
+		}
+	}
+	const flujo = crearFlujo(coordinador);
+	const datosInicia = await datosIniciales(flujo);
+	if (datosInicia === null) {
+		return CANCELADA;
+	}
+	let solicitud = construirSolicitud(datosInicia, flujo);
+	let datos = datosInicia;
+	for (;;) {
+		const resultado = await flujo.casoUso(solicitud);
+		const paso = await evaluarDesenlace(resultado, datos, flujo);
+		if (paso.tipo === "finalizar") {
+			return paso.finalizacion;
+		}
+		solicitud = paso.solicitud;
+		datos = paso.datos;
+	}
 }
 
 /** Peticiones sobre `readline` real de `prompts.ts` (TASK-012) para producción. */
 export const peticionesDeTerminal: PeticionesCreacion = {
-  nombre: () => promptNombrePlaylist(),
-  descripcion: () => promptDescripcionPlaylist(),
-  visibilidad: () => promptVisibilidadPlaylist(),
-  confirmacion: (resumen) => confirmarCreacion(resumen),
-  opcionDuplicados: () => promptOpcionDuplicados(),
-  modificacion: () => promptModificarDescripcion(),
+	nombre: () => promptNombrePlaylist(),
+	descripcion: () => promptDescripcionPlaylist(),
+	visibilidad: () => promptVisibilidadPlaylist(),
+	confirmacion: (resumen) => confirmarCreacion(resumen),
+	opcionDuplicados: () => promptOpcionDuplicados(),
+	modificacion: () => promptModificarDescripcion(),
 };

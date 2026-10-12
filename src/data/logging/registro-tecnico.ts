@@ -15,99 +15,108 @@
  * testigos, secretos, cabeceras de autorización y cuerpos de respuesta
  * (RNF-001).
  */
-import { getLogger } from './pino-setup.js';
+import { getLogger } from "./pino-setup.js";
 
 /** Visibilidad registrable: exactamente los dos valores aprobados (P-001). */
-type VisibilidadRegistro = 'publica' | 'privada';
+type VisibilidadRegistro = "publica" | "privada";
 
 /** Campos estructurados admitidos: conjunto cerrado, sin testigos ni cuerpos. */
 export interface CamposRegistroPino {
-  nombre?: string;
-  visibilidad?: VisibilidadRegistro;
-  descripcionEfectiva?: string;
-  identificador?: string;
-  intento?: number;
-  estado?: number;
-  causa?: string;
+	nombre?: string;
+	visibilidad?: VisibilidadRegistro;
+	descripcionEfectiva?: string;
+	identificador?: string;
+	intento?: number;
+	estado?: number;
+	causa?: string;
 }
 
 /** Registro técnico con la forma estructural del puerto `RegistroTecnico`. */
 export interface RegistroTecnicoPino {
-  info: (mensaje: string, campos?: CamposRegistroPino) => void;
-  advertencia: (mensaje: string, campos?: CamposRegistroPino) => void;
-  error: (mensaje: string, campos?: CamposRegistroPino) => void;
+	info: (mensaje: string, campos?: CamposRegistroPino) => void;
+	advertencia: (mensaje: string, campos?: CamposRegistroPino) => void;
+	error: (mensaje: string, campos?: CamposRegistroPino) => void;
 }
 
-type NivelRegistro = 'info' | 'warn' | 'error';
+type NivelRegistro = "info" | "warn" | "error";
 
 /** Lista central de campos depurados: texto susceptible de contener secretos. */
-const CAMPOS_DE_TEXTO = ['nombre', 'descripcionEfectiva', 'identificador', 'causa'] as const;
+const CAMPOS_DE_TEXTO = [
+	"nombre",
+	"descripcionEfectiva",
+	"identificador",
+	"causa",
+] as const;
 /** Lista central de campos depurados: valores numéricos seguros por construcción. */
-const CAMPOS_NUMERICOS = ['intento', 'estado'] as const;
-const VISIBILIDADES: readonly VisibilidadRegistro[] = ['publica', 'privada'];
+const CAMPOS_NUMERICOS = ["intento", "estado"] as const;
+const VISIBILIDADES: readonly VisibilidadRegistro[] = ["publica", "privada"];
 
-const MARCA_DATO_OMITIDO = '[dato omitido]';
-const MARCA_CUERPO_OMITIDO = '[cuerpo omitido]';
+const MARCA_DATO_OMITIDO = "[dato omitido]";
+const MARCA_CUERPO_OMITIDO = "[cuerpo omitido]";
 
 /** Patrones de testigo, cabecera de autorización o credencial (RNF-001). */
 const PATRONES_SECRETOS: readonly RegExp[] = [
-  /\bbearer\s+[^,;\s"']+/gi,
-  /\bauthorization\b"?\s*[:=]\s*[^,;\n]*/gi,
-  /\b(access_token|refresh_token|id_token)\b"?\s*[:=]\s*"?[^,;\s"'}]+/gi,
-  /\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}/g,
+	/\bbearer\s+[^,;\s"']+/gi,
+	/\bauthorization\b"?\s*[:=]\s*[^,;\n]*/gi,
+	/\b(access_token|refresh_token|id_token)\b"?\s*[:=]\s*"?[^,;\s"'}]+/gi,
+	/\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}/g,
 ];
 /** Objetos JSON embebidos: se tratan como cuerpo de respuesta (RNF-001). */
 const PATRON_CUERPO_JSON = /\{[^{}]*\}/g;
 
 function esJsonCompleto(valor: string): boolean {
-  const texto = valor.trim();
-  if (!texto.startsWith('{') && !texto.startsWith('[')) {
-    return false;
-  }
-  try {
-    JSON.parse(texto);
-    return true;
-  } catch {
-    return false;
-  }
+	const texto = valor.trim();
+	if (!texto.startsWith("{") && !texto.startsWith("[")) {
+		return false;
+	}
+	try {
+		JSON.parse(texto);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 /** Depura un texto: omite cuerpos JSON y patrones de testigo o autorización. */
 function depurarTexto(valor: string): string {
-  if (esJsonCompleto(valor)) {
-    return MARCA_CUERPO_OMITIDO;
-  }
-  let depurado = valor.replace(PATRON_CUERPO_JSON, MARCA_CUERPO_OMITIDO);
-  for (const patron of PATRONES_SECRETOS) {
-    depurado = depurado.replace(patron, MARCA_DATO_OMITIDO);
-  }
-  return depurado;
+	if (esJsonCompleto(valor)) {
+		return MARCA_CUERPO_OMITIDO;
+	}
+	let depurado = valor.replace(PATRON_CUERPO_JSON, MARCA_CUERPO_OMITIDO);
+	for (const patron of PATRONES_SECRETOS) {
+		depurado = depurado.replace(patron, MARCA_DATO_OMITIDO);
+	}
+	return depurado;
 }
 
 /** Conserva solo los campos estructurados admitidos, ya depurados (RNF-001). */
 function depurarCampos(campos: CamposRegistroPino = {}): CamposRegistroPino {
-  const depurados: CamposRegistroPino = {};
-  for (const campo of CAMPOS_DE_TEXTO) {
-    const valor = campos[campo];
-    if (typeof valor === 'string' && valor.length > 0) {
-      depurados[campo] = depurarTexto(valor);
-    }
-  }
-  for (const campo of CAMPOS_NUMERICOS) {
-    const valor = campos[campo];
-    if (typeof valor === 'number' && Number.isFinite(valor)) {
-      depurados[campo] = valor;
-    }
-  }
-  const visibilidad = campos.visibilidad;
-  if (visibilidad && VISIBILIDADES.includes(visibilidad)) {
-    depurados.visibilidad = visibilidad;
-  }
-  return depurados;
+	const depurados: CamposRegistroPino = {};
+	for (const campo of CAMPOS_DE_TEXTO) {
+		const valor = campos[campo];
+		if (typeof valor === "string" && valor.length > 0) {
+			depurados[campo] = depurarTexto(valor);
+		}
+	}
+	for (const campo of CAMPOS_NUMERICOS) {
+		const valor = campos[campo];
+		if (typeof valor === "number" && Number.isFinite(valor)) {
+			depurados[campo] = valor;
+		}
+	}
+	const visibilidad = campos.visibilidad;
+	if (visibilidad && VISIBILIDADES.includes(visibilidad)) {
+		depurados.visibilidad = visibilidad;
+	}
+	return depurados;
 }
 
-function escribir(nivel: NivelRegistro, mensaje: string, campos?: CamposRegistroPino): void {
-  getLogger()[nivel](depurarCampos(campos), depurarTexto(mensaje));
+function escribir(
+	nivel: NivelRegistro,
+	mensaje: string,
+	campos?: CamposRegistroPino,
+): void {
+	getLogger()[nivel](depurarCampos(campos), depurarTexto(mensaje));
 }
 
 /**
@@ -116,9 +125,9 @@ function escribir(nivel: NivelRegistro, mensaje: string, campos?: CamposRegistro
  * Business invoca `info`, `advertencia` o `error`.
  */
 export function crearRegistroTecnico(): RegistroTecnicoPino {
-  return {
-    info: (mensaje, campos) => escribir('info', mensaje, campos),
-    advertencia: (mensaje, campos) => escribir('warn', mensaje, campos),
-    error: (mensaje, campos) => escribir('error', mensaje, campos),
-  };
+	return {
+		info: (mensaje, campos) => escribir("info", mensaje, campos),
+		advertencia: (mensaje, campos) => escribir("warn", mensaje, campos),
+		error: (mensaje, campos) => escribir("error", mensaje, campos),
+	};
 }

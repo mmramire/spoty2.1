@@ -19,45 +19,45 @@
  * (DISC-002). Los mensajes técnicos de registro no son literales de usuario
  * (RF-002 los compone Presentation a partir del resultado).
  */
-import { withRetry } from '../retry/retry.js';
-import { clasificarErrorData } from './errores.js';
-import { politicaReintento429 } from './politica-reintento.js';
-import type { DependenciasCreacion, RegistroTecnico } from './puertos.js';
+import { withRetry } from "../retry/retry.js";
+import { clasificarErrorData } from "./errores.js";
+import { politicaReintento429 } from "./politica-reintento.js";
+import type { DependenciasCreacion, RegistroTecnico } from "./puertos.js";
 import type {
-  DescripcionEfectiva,
-  Duplicado,
-  ErrorValidacion,
-  PlaylistCreada,
-  ResultadoCreacion,
-  SesionVigente,
-  SolicitudCreacion,
-  Visibilidad,
-} from './types.js';
+	DescripcionEfectiva,
+	Duplicado,
+	ErrorValidacion,
+	PlaylistCreada,
+	ResultadoCreacion,
+	SesionVigente,
+	SolicitudCreacion,
+	Visibilidad,
+} from "./types.js";
 import {
-  esDuplicadoPropio,
-  esLongitudValida,
-  recortarNombre,
-  resolverDescripcionEfectiva,
-  resolverVisibilidad,
-} from './validacion.js';
+	esDuplicadoPropio,
+	esLongitudValida,
+	recortarNombre,
+	resolverDescripcionEfectiva,
+	resolverVisibilidad,
+} from "./validacion.js";
 
 /** Mensaje técnico del `info` de inicio (RNF-006, ARCHITECTURE §10). */
-const MENSAJE_INICIO = 'Inicio de creación de playlist vacía';
+const MENSAJE_INICIO = "Inicio de creación de playlist vacía";
 
 /** Mensaje técnico del `info` de éxito (RNF-006, ARCHITECTURE §10). */
-const MENSAJE_EXITO = 'Playlist creada con éxito';
+const MENSAJE_EXITO = "Playlist creada con éxito";
 
 /** Mensaje técnico de la `advertencia` por duplicado (RNF-006, BR-006). */
-const MENSAJE_DUPLICADO = 'Duplicado detectado contra listas propias';
+const MENSAJE_DUPLICADO = "Duplicado detectado contra listas propias";
 
 /** Mensaje técnico del `error` final cuando la creación no se completa (UC-001-E2). */
-const MENSAJE_ERROR_FINAL = 'Creación de playlist no completada';
+const MENSAJE_ERROR_FINAL = "Creación de playlist no completada";
 
 /** Entrada que superó la validación de dominio y ya está lista para crear. */
 interface EntradaValidada {
-  readonly nombreEfectivo: string;
-  readonly visibilidad: Visibilidad;
-  readonly descripcionEfectiva: DescripcionEfectiva;
+	readonly nombreEfectivo: string;
+	readonly visibilidad: Visibilidad;
+	readonly descripcionEfectiva: DescripcionEfectiva;
 }
 
 /**
@@ -65,19 +65,21 @@ interface EntradaValidada {
  * efectos secundarios. Mientras la entrada siga inválida no se lista ni se crea
  * (UC-001-E3) y no se llega a invocar el canal de confirmación.
  */
-function validarEntrada(solicitud: SolicitudCreacion): EntradaValidada | ErrorValidacion {
-  if (!esLongitudValida(solicitud.nombre)) {
-    return { resultado: 'errorValidacion', campo: 'nombre' };
-  }
-  const visibilidad = resolverVisibilidad(solicitud.visibilidad);
-  if (typeof visibilidad !== 'string') {
-    return visibilidad;
-  }
-  return {
-    nombreEfectivo: recortarNombre(solicitud.nombre),
-    visibilidad,
-    descripcionEfectiva: resolverDescripcionEfectiva(solicitud.descripcion),
-  };
+function validarEntrada(
+	solicitud: SolicitudCreacion,
+): EntradaValidada | ErrorValidacion {
+	if (!esLongitudValida(solicitud.nombre)) {
+		return { resultado: "errorValidacion", campo: "nombre" };
+	}
+	const visibilidad = resolverVisibilidad(solicitud.visibilidad);
+	if (typeof visibilidad !== "string") {
+		return visibilidad;
+	}
+	return {
+		nombreEfectivo: recortarNombre(solicitud.nombre),
+		visibilidad,
+		descripcionEfectiva: resolverDescripcionEfectiva(solicitud.descripcion),
+	};
 }
 
 /**
@@ -88,21 +90,21 @@ function validarEntrada(solicitud: SolicitudCreacion): EntradaValidada | ErrorVa
  * continúa directamente a la confirmación.
  */
 async function comprobarDuplicado(
-  solicitud: SolicitudCreacion,
-  entrada: EntradaValidada,
-  dependencias: DependenciasCreacion
+	solicitud: SolicitudCreacion,
+	entrada: EntradaValidada,
+	dependencias: DependenciasCreacion,
 ): Promise<Duplicado | null> {
-  if (solicitud.duplicadoAceptado === true) {
-    return null;
-  }
-  const propias = await dependencias.playlistGateway.listarPlaylistsPropias();
-  if (!esDuplicadoPropio(entrada.nombreEfectivo, propias)) {
-    return null;
-  }
-  dependencias.registroTecnico.advertencia(MENSAJE_DUPLICADO, {
-    nombre: entrada.nombreEfectivo,
-  });
-  return { resultado: 'duplicado', nombreEfectivo: entrada.nombreEfectivo };
+	if (solicitud.duplicadoAceptado === true) {
+		return null;
+	}
+	const propias = await dependencias.playlistGateway.listarPlaylistsPropias();
+	if (!esDuplicadoPropio(entrada.nombreEfectivo, propias)) {
+		return null;
+	}
+	dependencias.registroTecnico.advertencia(MENSAJE_DUPLICADO, {
+		nombre: entrada.nombreEfectivo,
+	});
+	return { resultado: "duplicado", nombreEfectivo: entrada.nombreEfectivo };
 }
 
 /**
@@ -114,24 +116,24 @@ async function comprobarDuplicado(
  * propaga de inmediato a la clasificación.
  */
 async function crearConPoliticaReintento(
-  entrada: EntradaValidada,
-  sesion: SesionVigente,
-  dependencias: DependenciasCreacion
+	entrada: EntradaValidada,
+	sesion: SesionVigente,
+	dependencias: DependenciasCreacion,
 ): Promise<PlaylistCreada> {
-  const { playlistGateway, registroTecnico, espera } = dependencias;
-  const { nombreEfectivo, visibilidad, descripcionEfectiva } = entrada;
-  return withRetry(
-    () =>
-      playlistGateway.crearPlaylist({
-        nombreEfectivo,
-        descripcionEfectiva,
-        visibilidad,
-        testigoSesion: sesion.testigoSesion,
-      }),
-    politicaReintento429,
-    {},
-    { espera, registro: registroTecnico }
-  );
+	const { playlistGateway, registroTecnico, espera } = dependencias;
+	const { nombreEfectivo, visibilidad, descripcionEfectiva } = entrada;
+	return withRetry(
+		() =>
+			playlistGateway.crearPlaylist({
+				nombreEfectivo,
+				descripcionEfectiva,
+				visibilidad,
+				testigoSesion: sesion.testigoSesion,
+			}),
+		politicaReintento429,
+		{},
+		{ espera, registro: registroTecnico },
+	);
 }
 
 /**
@@ -141,14 +143,14 @@ async function crearConPoliticaReintento(
  * `SinSesion`, no registran: RNF-001, AC-004).
  */
 function clasificarFalloCreacion(
-  error: unknown,
-  registroTecnico: RegistroTecnico
+	error: unknown,
+	registroTecnico: RegistroTecnico,
 ): ResultadoCreacion {
-  const desenlace = clasificarErrorData(error);
-  if ('causa' in desenlace) {
-    registroTecnico.error(MENSAJE_ERROR_FINAL, { causa: desenlace.causa });
-  }
-  return desenlace;
+	const desenlace = clasificarErrorData(error);
+	if ("causa" in desenlace) {
+		registroTecnico.error(MENSAJE_ERROR_FINAL, { causa: desenlace.causa });
+	}
+	return desenlace;
 }
 
 /**
@@ -162,31 +164,34 @@ function clasificarFalloCreacion(
  * emite el `error` final con la causa depurada cuando el desenlace la aporta.
  */
 async function crearTrasConfirmacion(
-  entrada: EntradaValidada,
-  sesion: SesionVigente,
-  dependencias: DependenciasCreacion
+	entrada: EntradaValidada,
+	sesion: SesionVigente,
+	dependencias: DependenciasCreacion,
 ): Promise<ResultadoCreacion> {
-  const { registroTecnico } = dependencias;
-  const { nombreEfectivo, visibilidad, descripcionEfectiva } = entrada;
-  const datos = { nombre: nombreEfectivo, visibilidad, descripcionEfectiva };
-  registroTecnico.info(MENSAJE_INICIO, datos);
+	const { registroTecnico } = dependencias;
+	const { nombreEfectivo, visibilidad, descripcionEfectiva } = entrada;
+	const datos = { nombre: nombreEfectivo, visibilidad, descripcionEfectiva };
+	registroTecnico.info(MENSAJE_INICIO, datos);
 
-  let creada: PlaylistCreada;
-  try {
-    creada = await crearConPoliticaReintento(entrada, sesion, dependencias);
-  } catch (error) {
-    return clasificarFalloCreacion(error, registroTecnico);
-  }
+	let creada: PlaylistCreada;
+	try {
+		creada = await crearConPoliticaReintento(entrada, sesion, dependencias);
+	} catch (error) {
+		return clasificarFalloCreacion(error, registroTecnico);
+	}
 
-  registroTecnico.info(MENSAJE_EXITO, { ...datos, identificador: creada.identificador });
-  return {
-    resultado: 'exito',
-    nombreEfectivo,
-    visibilidad,
-    descripcionEfectiva,
-    identificador: creada.identificador,
-    enlace: creada.enlace,
-  };
+	registroTecnico.info(MENSAJE_EXITO, {
+		...datos,
+		identificador: creada.identificador,
+	});
+	return {
+		resultado: "exito",
+		nombreEfectivo,
+		visibilidad,
+		descripcionEfectiva,
+		identificador: creada.identificador,
+		enlace: creada.enlace,
+	};
 }
 
 /**
@@ -205,28 +210,28 @@ async function crearTrasConfirmacion(
  *   depurada (AC-004, TASK-009).
  */
 export async function crearPlaylistVacia(
-  solicitud: SolicitudCreacion,
-  dependencias: DependenciasCreacion
+	solicitud: SolicitudCreacion,
+	dependencias: DependenciasCreacion,
 ): Promise<ResultadoCreacion> {
-  const sesion = await dependencias.sesionProveedor.obtenerSesionVigente();
-  if (sesion === null) {
-    return { resultado: 'sinSesion' };
-  }
+	const sesion = await dependencias.sesionProveedor.obtenerSesionVigente();
+	if (sesion === null) {
+		return { resultado: "sinSesion" };
+	}
 
-  const entrada = validarEntrada(solicitud);
-  if ('resultado' in entrada) {
-    return entrada;
-  }
+	const entrada = validarEntrada(solicitud);
+	if ("resultado" in entrada) {
+		return entrada;
+	}
 
-  const duplicado = await comprobarDuplicado(solicitud, entrada, dependencias);
-  if (duplicado !== null) {
-    return duplicado;
-  }
+	const duplicado = await comprobarDuplicado(solicitud, entrada, dependencias);
+	if (duplicado !== null) {
+		return duplicado;
+	}
 
-  const confirmacion = await solicitud.canalConfirmacion();
-  if (confirmacion === 'cancelada') {
-    return { resultado: 'cancelado' };
-  }
+	const confirmacion = await solicitud.canalConfirmacion();
+	if (confirmacion === "cancelada") {
+		return { resultado: "cancelado" };
+	}
 
-  return crearTrasConfirmacion(entrada, sesion, dependencias);
+	return crearTrasConfirmacion(entrada, sesion, dependencias);
 }

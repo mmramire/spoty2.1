@@ -11,11 +11,11 @@
  * entrada ni de Data, y no declara tipos inseguros.
  */
 import type {
-  DescripcionEfectiva,
-  EntradaVisibilidad,
-  ErrorValidacion,
-  Visibilidad,
-} from './types.js';
+	DescripcionEfectiva,
+	EntradaVisibilidad,
+	ErrorValidacion,
+	Visibilidad,
+} from "./types.js";
 
 /** Longitud mínima de nombre en caracteres visibles tras recorte (BR-004). */
 const LONGITUD_MINIMA = 3;
@@ -24,24 +24,24 @@ const LONGITUD_MINIMA = 3;
 const LONGITUD_MAXIMA = 100;
 
 /** Descripción por defecto aprobada cuando no se aporta ninguna (RF-001, P-004). */
-const DESCRIPCION_POR_DEFECTO = 'Playlist sin descripción';
+const DESCRIPCION_POR_DEFECTO = "Playlist sin descripción";
 
 /**
  * Recorte único de espacios en extremos. La ausencia equivale a cadena vacía:
  * nombre ausente en comando directo y descripción omitida (P-004, RF-001).
  */
 function recortar(texto: string | undefined): string {
-  return (texto ?? '').trim();
+	return (texto ?? "").trim();
 }
 
 /** Cuenta caracteres visibles como puntos de código, sin mitades sueltas de surrogate. */
 function contarVisibles(texto: string): number {
-  return [...texto].length;
+	return [...texto].length;
 }
 
 /** Nombre efectivo: valor aportado con los espacios extremos eliminados (BR-004). */
 export function recortarNombre(nombre: string): string {
-  return recortar(nombre);
+	return recortar(nombre);
 }
 
 /**
@@ -49,17 +49,19 @@ export function recortarNombre(nombre: string): string {
  * caracteres visibles. Vacío, solo espacios y nombre ausente quedan rechazados.
  */
 export function esLongitudValida(nombre: string | undefined): boolean {
-  const longitud = contarVisibles(recortar(nombre));
-  return longitud >= LONGITUD_MINIMA && longitud <= LONGITUD_MAXIMA;
+	const longitud = contarVisibles(recortar(nombre));
+	return longitud >= LONGITUD_MINIMA && longitud <= LONGITUD_MAXIMA;
 }
 
 /**
  * RF-001: valor aportado no vacío o `"Playlist sin descripción"` cuando la
  * descripción es vacía o solo espacios (definición general de vacío de P-004).
  */
-export function resolverDescripcionEfectiva(descripcion?: string): DescripcionEfectiva {
-  const texto = recortar(descripcion);
-  return texto === '' ? DESCRIPCION_POR_DEFECTO : texto;
+export function resolverDescripcionEfectiva(
+	descripcion?: string,
+): DescripcionEfectiva {
+	const texto = recortar(descripcion);
+	return texto === "" ? DESCRIPCION_POR_DEFECTO : texto;
 }
 
 /**
@@ -67,11 +69,13 @@ export function resolverDescripcionEfectiva(descripcion?: string): DescripcionEf
  * visibilidad; la ausencia o la doble presencia produce `ErrorValidacion` de
  * visibilidad. La modalidad colaborativa no es representable (P-001).
  */
-export function resolverVisibilidad(entrada: EntradaVisibilidad): Visibilidad | ErrorValidacion {
-  if (entrada === 'ausente' || entrada === 'doble') {
-    return { resultado: 'errorValidacion', campo: 'visibilidad' };
-  }
-  return entrada;
+export function resolverVisibilidad(
+	entrada: EntradaVisibilidad,
+): Visibilidad | ErrorValidacion {
+	if (entrada === "ausente" || entrada === "doble") {
+		return { resultado: "errorValidacion", campo: "visibilidad" };
+	}
+	return entrada;
 }
 
 /**
@@ -84,7 +88,10 @@ export function resolverVisibilidad(entrada: EntradaVisibilidad): Visibilidad | 
  * ajenas homónimas no cuentan: no llegan a este predicado. Función pura, sin
  * red, sin disco y sin mutar la lista recibida.
  */
-export function esDuplicadoPropio(nombreEfectivo: string, propias: readonly string[]): boolean {
-  const objetivo = recortar(nombreEfectivo);
-  return propias.some((propia) => recortar(propia) === objetivo);
+export function esDuplicadoPropio(
+	nombreEfectivo: string,
+	propias: readonly string[],
+): boolean {
+	const objetivo = recortar(nombreEfectivo);
+	return propias.some((propia) => recortar(propia) === objetivo);
 }
