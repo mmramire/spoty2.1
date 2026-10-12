@@ -15,12 +15,7 @@
 		"lint": "biome check --write .",
 		"lint:check": "biome check ."
 	},
-	"keywords": [
-		"spotify",
-		"oauth",
-		"cli",
-		"pkce"
-	],
+	"keywords": ["spotify", "oauth", "cli", "pkce"],
 	"author": "",
 	"license": "MIT",
 	"dependencies": {

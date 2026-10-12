@@ -16,10 +16,11 @@ export const MESSAGES = {
 		status: "2. Ver estado de conexión",
 		download: "3. Descargar biblioteca",
 		createPlaylist: "4. Crear playlist vacía",
+		listPlaylists: "5. Ver mis playlists",
 		logout: "9. Cerrar sesión",
 		exit: "0. Salir",
 		hint: "(navega con 0-3,9, Ctrl+C para cancelar)",
-		hintCreatePlaylist: "(navega con 0-4,9, Ctrl+C para cancelar)",
+		hintCreatePlaylist: "(navega con 0-5,9, Ctrl+C para cancelar)",
 	},
 	config: {
 		missingClientId:
@@ -94,6 +95,9 @@ export const MESSAGES = {
 			"¿Qué deseas hacer? 1. Modificar nombre 2. Crear de todos modos con el mismo nombre " +
 			"0. Cancelar sin crear / Elige (0-2):",
 		cancelled: "Creación cancelada. No se creó ninguna playlist.",
+		listaVacia: "No tienes playlists creadas.",
+		listado: (nombres: readonly string[]) =>
+			`Tus playlists (${nombres.length}):\n${nombres.map((nombre) => `- "${nombre}"`).join("\n")}`,
 		namePrompt: "Nombre de la playlist (3-100 caracteres):",
 		descriptionPrompt:
 			'Descripción (opcional, Enter para usar "Playlist sin descripción"):',

@@ -127,6 +127,12 @@ export interface Cancelado {
 	readonly resultado: "cancelado";
 }
 
+/** Desenlace: listado de nombres de playlists propias del usuario vigente. */
+export interface ListaPlaylists {
+	readonly resultado: "exito";
+	readonly nombres: readonly string[];
+}
+
 /**
  * Resultado de creación como unión discriminada por `resultado`, con los nueve
  * desenlaces aprobados: `Exito`, `ErrorValidacion`, `Duplicado`, `SinSesion`,
@@ -143,6 +149,20 @@ export type ResultadoCreacion =
 	| LimiteAgotado
 	| FalloInesperado
 	| Cancelado;
+
+/**
+ * Resultado del listado de playlists propias como unión discriminada por
+ * `resultado`: `ListaPlaylists` con los nombres, o bien `SinSesion`,
+ * `SesionCaducada`, `PermisosInsuficientes`, `LimiteAgotado` o
+ * `FalloInesperado` ante fallo de servicio.
+ */
+export type ResultadoLista =
+	| ListaPlaylists
+	| SinSesion
+	| SesionCaducada
+	| PermisosInsuficientes
+	| LimiteAgotado
+	| FalloInesperado;
 
 /** Sesión vigente mínima que Business necesita para decidir y para crear. */
 export interface SesionVigente {

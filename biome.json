@@ -1,5 +1,5 @@
 {
 	"files": {
-		"ignore": ["dist", "node_modules", "coverage"]
+		"ignore": ["dist", "node_modules", "coverage", "data", "downloads"]
 	}
 }

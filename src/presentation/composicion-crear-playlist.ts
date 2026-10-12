@@ -14,13 +14,10 @@
  * `SPOTY_TOKENS_FILE` y `SPOTY_LOG_FILE` y la red se sustituye por un doble
  * (RNF-003, RNF-004, compatibilidad SEA sin dependencias nuevas).
  */
-import { checkExistingSession } from "../business/auth/flow.js";
-import { getStoredTokens } from "../business/auth/tokens.js";
 import { crearPlaylistVacia } from "../business/playlists/crear-playlist.js";
 import type {
 	DependenciasCreacion,
 	Espera,
-	SesionProveedor,
 } from "../business/playlists/puertos.js";
 import type {
 	ResultadoCreacion,
@@ -28,6 +25,10 @@ import type {
 } from "../business/playlists/types.js";
 import { crearPlaylistGateway } from "../data/http/playlists-client.js";
 import { crearRegistroTecnico } from "../data/logging/registro-tecnico.js";
+import {
+	sesionDeAlmacenamiento,
+	verificarSesionVigente,
+} from "./composicion-sesion.js";
 
 /** Caso de uso ya compuesto: se invoca con una solicitud, sin dependencias. */
 export type CasoUsoCrearPlaylist = (
@@ -47,24 +48,6 @@ const esperaDeTemporizador: Espera = {
 };
 
 /**
- * `SesionProveedor` sobre `getStoredTokens` y `checkExistingSession` (§5, §7):
- * sin tokens almacenados no hay sesión vigente y no se consulta la red; con
- * tokens almacenados se valida la sesión vigente y se devuelve el testigo de
- * acceso (BR-001, UC-001-E1).
- */
-const sesionDeAlmacenamiento: SesionProveedor = {
-	async obtenerSesionVigente() {
-		if (getStoredTokens() === null) {
-			return null;
-		}
-		const sesion = await checkExistingSession();
-		return sesion === null
-			? null
-			: { testigoSesion: sesion.tokens.access_token };
-	},
-};
-
-/**
  * Verificación previa de sesión para Presentation (UC-001-E1): reutiliza el
  * mismo `SesionProveedor` real del caso de uso —tokens almacenados más
  * validación vigente contra Spotify— de modo que el coordinador y los puntos
@@ -72,8 +55,7 @@ const sesionDeAlmacenamiento: SesionProveedor = {
  * formulario o de invocar la petición.
  */
 export async function verificarSesionParaCrearPlaylist(): Promise<boolean> {
-	const sesion = await sesionDeAlmacenamiento.obtenerSesionVigente();
-	return sesion !== null;
+	return verificarSesionVigente();
 }
 
 /**

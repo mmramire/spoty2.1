@@ -9,10 +9,13 @@ import { clearStoredTokens, getStoredTokens } from "./business/auth/tokens.js";
 import { type AuthConfig, getAuthConfig } from "./business/auth/types.js";
 import { downloadSongs } from "./business/download-songs.js";
 import { ejecutarComandoCrearPlaylist } from "./presentation/comando-crear-playlist.js";
+import { ejecutarComandoListarPlaylists } from "./presentation/comando-listar-playlists.js";
 import {
 	componerCrearPlaylistVacia,
 	verificarSesionParaCrearPlaylist,
 } from "./presentation/composicion-crear-playlist.js";
+import { componerListarPlaylists } from "./presentation/composicion-listar-playlists.js";
+import { verificarSesionVigente } from "./presentation/composicion-sesion.js";
 import {
 	blank,
 	bold,
@@ -32,6 +35,7 @@ import {
 	ejecutarFlujoCreacion,
 	peticionesDeTerminal,
 } from "./presentation/crear-playlist.js";
+import { ejecutarFlujoListado } from "./presentation/listar-playlists.js";
 import { MESSAGES } from "./presentation/messages.js";
 import {
 	closeReadline,
@@ -164,6 +168,7 @@ async function showMenu(): Promise<void> {
 	showMessage(MESSAGES.menu.status);
 	showMessage(MESSAGES.menu.download);
 	showMessage(MESSAGES.menu.createPlaylist);
+	showMessage(MESSAGES.menu.listPlaylists);
 	showMessage(MESSAGES.menu.logout);
 	showMessage(MESSAGES.menu.exit);
 	showMessage(dim(MESSAGES.menu.hintCreatePlaylist));
@@ -181,6 +186,19 @@ async function iniciarCreacionDesdeMenu(): Promise<void> {
 		casoUso: componerCrearPlaylistVacia(),
 		peticiones: peticionesDeTerminal,
 		verificarSesion: verificarSesionParaCrearPlaylist,
+	});
+}
+
+/**
+ * Ruta de la opción 5 del menú hacia el coordinador del listado: verifica
+ * previamente que la cuenta esté conectada y presenta los nombres de las
+ * playlists propias. Cualquier desenlace —lista presentada o error ya
+ * presentado— retorna al menú principal.
+ */
+async function iniciarListadoDesdeMenu(): Promise<void> {
+	await ejecutarFlujoListado({
+		casoUso: componerListarPlaylists(),
+		verificarSesion: verificarSesionVigente,
 	});
 }
 
@@ -216,6 +234,12 @@ export async function handleCommand(
 				// TASK-015: el comando crea directamente con parámetros válidos; solo
 				// los desenlaces de error devuelven código de salida distinto de cero.
 				const finalizacion = await ejecutarComandoCrearPlaylist(args);
+				return finalizacion.estado === "error" ? 1 : 0;
+			}
+			case "list-playlists": {
+				// El comando lista directamente; solo los desenlaces de error
+				// devuelven código de salida distinto de cero.
+				const finalizacion = await ejecutarComandoListarPlaylists();
 				return finalizacion.estado === "error" ? 1 : 0;
 			}
 			default:
@@ -294,6 +318,9 @@ export async function runInteractiveMode(): Promise<number> {
 			case "4":
 				await iniciarCreacionDesdeMenu();
 				break;
+			case "5":
+				await iniciarListadoDesdeMenu();
+				break;
 			case "9":
 				await handleLogout();
 				break;
@@ -332,6 +359,7 @@ export async function showHelp(): Promise<number> {
 	showMessage(
 		"  create-new-playlist  Crear playlist vacía (--name <nombre>, --description <texto>, --public | --private)",
 	);
+	showMessage("  list-playlists     Ver los nombres de tus playlists");
 	showMessage("  --help    Mostrar esta ayuda");
 	showMessage("");
 	showMessage(bold("Variables de entorno:"));

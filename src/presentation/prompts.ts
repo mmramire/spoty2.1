@@ -52,7 +52,7 @@ export async function promptRedirectUri(): Promise<string> {
 }
 
 /** Texto del selector, alineado con la numeración real del menú (N-004). */
-const SELECTOR_MENU = "\nSelecciona una opción (0-4,9): ";
+const SELECTOR_MENU = "\nSelecciona una opción (0-5,9): ";
 
 /**
  * Ítems del menú (TASK-011) de los que se deriva la etiqueta de cada
@@ -64,6 +64,7 @@ const ITEMS_MENU: Record<string, string> = {
 	"2": MESSAGES.menu.status,
 	"3": MESSAGES.menu.download,
 	"4": MESSAGES.menu.createPlaylist,
+	"5": MESSAGES.menu.listPlaylists,
 	"9": MESSAGES.menu.logout,
 	"0": MESSAGES.menu.exit,
 };

@@ -1,9 +1,10 @@
 # Spoty
 
-Spoty es un programa que se conecta con tu cuenta de Spotify para hacer dos cosas:
+Spoty es un programa que se conecta con tu cuenta de Spotify para hacer tres cosas:
 
 1. **Descargar la lista de canciones que marcaste con "Me gusta"** a un archivo en tu computadora.
 2. **Crear playlists vacías** nuevas en tu cuenta de Spotify.
+3. **Ver los nombres de tus playlists** creadas.
 
 Todo se usa desde una ventana de comandos (la terminal), siguiendo un menú con opciones numeradas.
 
@@ -66,6 +67,7 @@ Verás este menú:
 2. Ver estado de conexión
 3. Descargar biblioteca
 4. Crear playlist vacía
+5. Ver mis playlists
 9. Cerrar sesión
 0. Salir
 ```
@@ -76,10 +78,11 @@ Escribe el número de la opción y pulsa Enter.
 - **2. Ver estado de conexión**: te dice si hay una sesión activa y con qué usuario.
 - **3. Descargar biblioteca**: guarda tus canciones con "Me gusta" en un archivo dentro de la carpeta `downloads/`. Al terminar te muestra cuántas canciones descargó y dónde quedó el archivo.
 - **4. Crear playlist vacía**: te pide el nombre, una descripción opcional y si la quieres pública o privada. Después te muestra un resumen y debes confirmar escribiendo `s`. Si ya tienes una playlist con ese nombre, te deja cambiarlo, crearla igual o cancelar.
+- **5. Ver mis playlists**: muestra los nombres de tus playlists, una por línea. Si no tienes ninguna, te lo avisa.
 - **9. Cerrar sesión**: borra tu sesión de esta computadora.
 - **0. Salir**: cierra el programa (antes te pide confirmación).
 
-> Nota: las opciones 3 y 4 necesitan que hayas iniciado sesión primero. Si no lo hiciste, el programa te lo avisa y no hace nada más.
+> Nota: las opciones 3, 4 y 5 necesitan que hayas iniciado sesión primero. Si no lo hiciste, el programa te lo avisa y no hace nada más.
 
 ## Atajos (opcional)
 
@@ -97,6 +100,9 @@ npm run dev -- download-songs
 
 # Crear una playlist pública llamada "Mis favoritas"
 npm run dev -- create-new-playlist --name "Mis favoritas" --public
+
+# Ver los nombres de tus playlists
+npm run dev -- list-playlists
 
 # Cerrar sesión
 npm run dev -- logout
@@ -116,6 +122,7 @@ node dist/cli.js
 # O ejecutar un comando directo (aquí NO se usa --)
 node dist/cli.js connect
 node dist/cli.js download-songs
+node dist/cli.js list-playlists
 ```
 
 Funciona igual que `npm run dev`, pero usa la versión compilada en la carpeta `dist/`.
