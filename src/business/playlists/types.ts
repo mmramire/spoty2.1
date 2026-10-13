@@ -188,3 +188,76 @@ export interface PlaylistCreada {
 	readonly identificador: string;
 	readonly enlace: string;
 }
+
+/** Canción del batch de entrada: forma estricta del archivo `input/songs/*.json`. */
+export interface CancionBatch {
+	readonly id: string;
+	readonly uri: string;
+	readonly name: string;
+	readonly artists: readonly string[];
+}
+
+/** Batch de entrada validado: origen + canciones con URIs listas para insertar. */
+export interface BatchCanciones {
+	readonly source: string;
+	readonly tracks: readonly CancionBatch[];
+	readonly uris: readonly string[];
+}
+
+/** Solicitud del caso de uso `agregarCancionesAPlaylists`. */
+export interface SolicitudAgregarCanciones {
+	readonly playlists: readonly PlaylistResumen[];
+	readonly uris: readonly string[];
+}
+
+/** Resultado por playlist del agregado batch. */
+export interface ResultadoPorPlaylist {
+	readonly playlist: PlaylistResumen;
+	readonly agregadas: number;
+}
+
+/** Desenlace: canciones agregadas a todas las playlists seleccionadas. */
+export interface AgregadoExitoso {
+	readonly resultado: "exito";
+	readonly resultados: readonly ResultadoPorPlaylist[];
+	readonly totalPlaylists: number;
+	readonly totalCanciones: number;
+}
+
+/** Desenlace: validación local sin llamada a Spotify (sin playlists o sin URIs). */
+export interface ErrorValidacionAgregar {
+	readonly resultado: "errorValidacion";
+	readonly campo: "playlists" | "uris";
+}
+
+/** Resultado del agregado batch como unión discriminada. */
+export type ResultadoAgregar =
+	| AgregadoExitoso
+	| ErrorValidacionAgregar
+	| SinSesion
+	| SesionCaducada
+	| PermisosInsuficientes
+	| LimiteAgotado
+	| FalloInesperado;
+
+/** Solicitud del caso de uso `subirPortadaAPlaylist`. */
+export interface SolicitudSubirPortada {
+	readonly playlistId: string;
+	/** JPEG en Base64, payload ≤ 256 KB ya validado por el loader. */
+	readonly base64: string;
+}
+
+/** Desenlace: portada reemplazada (Spotify responde 202 sin cuerpo). */
+export interface PortadaSubida {
+	readonly resultado: "exito";
+	readonly playlistId: string;
+}
+
+/** Resultado de la subida de portada como unión discriminada. */
+export type ResultadoPortada =
+	| PortadaSubida
+	| SinSesion
+	| SesionCaducada
+	| PermisosInsuficientes
+	| LimiteAgotado
+	| FalloInesperado;

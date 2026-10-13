@@ -20,10 +20,11 @@ export const MESSAGES = {
 		download: "3. Descargar biblioteca",
 		createPlaylist: "4. Crear playlist vacía",
 		listPlaylists: "5. Ver mis playlists",
+		addSongs: "6. Agregar canciones a playlists (batch input/songs/)",
 		logout: "9. Cerrar sesión",
 		exit: "0. Salir",
 		hint: "(navega con 0-3,9, Ctrl+C para cancelar)",
-		hintCreatePlaylist: "(navega con 0-5,9, Ctrl+C para cancelar)",
+		hintCreatePlaylist: "(navega con 0-6,9, Ctrl+C para cancelar)",
 	},
 	config: {
 		missingClientId:
@@ -110,5 +111,52 @@ export const MESSAGES = {
 			`Resumen de la playlist: "${nombre}" (${VISIBILIDAD_EXIBIBLE[visibilidad]}, ` +
 			`descripción: "${descripcion}")`,
 		confirmPrompt: "¿Crear la playlist con estos datos? ",
+		reintentoConfirmacion:
+			"Solo `s` en minúscula confirma. Escribe `s` para confirmar o `N` para cancelar.",
+		seleccionLeyenda:
+			"Puedes seleccionar una o varias playlists.\n\n  Marca:  1,3  o  1-3  o  1 2 3\n  Enter:   confirmar\n  all:     marcar todas\n  none:    desmarcar todas\n  0:       cancelar",
+		seleccionContador: (seleccionadas: readonly PlaylistResumen[]) =>
+			seleccionadas.length === 0
+				? "Seleccionadas (0): ninguna"
+				: `Seleccionadas (${seleccionadas.length}): ${seleccionadas.map((p) => `"${p.nombre}"`).join(", ")}`,
+		seleccionVacia: "No hay playlists para seleccionar.",
+		seleccionSinElegir:
+			"No seleccionaste ninguna playlist. Marca al menos una o 0 para cancelar.",
+		confirmarCarga: (seleccionadas: readonly PlaylistResumen[]) =>
+			`Cargar canciones en (${seleccionadas.length}): ${seleccionadas.map((p) => `"${p.nombre}"`).join(", ")}? `,
+		cargaCancelada: "Carga cancelada. Volviendo al menú principal.",
+		inputVacio: "No hay archivos para importar en input/songs/.",
+		inputLeyenda:
+			"Marca el archivo batch a cargar.\n\n  Marca:  número de la lista\n  Enter:   confirmar\n  0:       cancelar",
+		inputSinElegir:
+			"No marcaste ningún archivo. Marca uno con su número o 0 para cancelar.",
+		inputInvalido:
+			"Opción inválida. Elige un número de la lista o 0 para cancelar.",
+		batchInvalido: (motivo: string) => `Archivo batch inválido: ${motivo}`,
+		agregadoOk: (canciones: number, playlists: number) =>
+			`Carga completada: ${canciones} canciones en ${playlists} playlist(s).`,
+		agregadoDetalle: (nombre: string, id: string, agregadas: number) =>
+			`- "${nombre}" (id: ${id}): ${agregadas} agregadas`,
+		agregadoValidacion: (campo: string) =>
+			`No se puede cargar: ${campo} vacío.`,
+		agregarPermisosError:
+			"Permisos insuficientes para agregar canciones a la playlist.",
+		agregarInesperadoError:
+			"No se pudieron agregar las canciones por un error inesperado.",
+		portadaPregunta: "¿Agregar portada a la playlist? ",
+		portadaLeyenda:
+			"Marca la portada a subir.\n\n  Marca:  número de la lista\n  Enter:   confirmar\n  0:       omitir",
+		portadaVacia: "No hay imágenes para portada en input/covers/.",
+		portadaSinElegir:
+			"No marcaste ninguna imagen. Marca una con su número o 0 para omitir.",
+		portadaInvalida:
+			"Opción inválida. Elige un número de la lista o 0 para omitir.",
+		portadaArchivoInvalido: (motivo: string) => `Imagen inválida: ${motivo}`,
+		portadaOk: "Portada actualizada.",
+		portadaOmitida: "Sin portada. La playlist queda con la imagen por defecto.",
+		portadaPermisosError:
+			"Permisos insuficientes para subir la portada (falta scope ugc-image-upload).",
+		portadaInesperadoError:
+			"No se pudo subir la portada por un error inesperado.",
 	},
 } as const;

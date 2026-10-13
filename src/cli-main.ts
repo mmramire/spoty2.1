@@ -10,8 +10,10 @@ import { type AuthConfig, getAuthConfig } from "./business/auth/types.js";
 import { downloadSongs } from "./business/download-songs.js";
 import { ejecutarComandoCrearPlaylist } from "./presentation/comando-crear-playlist.js";
 import { ejecutarComandoListarPlaylists } from "./presentation/comando-listar-playlists.js";
+import { ejecutarAgregadoReal } from "./presentation/composicion-agregar.js";
 import {
 	componerCrearPlaylistVacia,
+	componerPortadaReal,
 	verificarSesionParaCrearPlaylist,
 } from "./presentation/composicion-crear-playlist.js";
 import { componerListarPlaylists } from "./presentation/composicion-listar-playlists.js";
@@ -161,6 +163,7 @@ async function handleLogout(): Promise<void> {
 }
 
 async function showMenu(): Promise<void> {
+	showMessage(blank());
 	showMessage(divider());
 	showMessage(bold("Menú Principal"));
 	showMessage(MESSAGES.menu.title);
@@ -169,6 +172,7 @@ async function showMenu(): Promise<void> {
 	showMessage(MESSAGES.menu.download);
 	showMessage(MESSAGES.menu.createPlaylist);
 	showMessage(MESSAGES.menu.listPlaylists);
+	showMessage(MESSAGES.menu.addSongs);
 	showMessage(MESSAGES.menu.logout);
 	showMessage(MESSAGES.menu.exit);
 	showMessage(dim(MESSAGES.menu.hintCreatePlaylist));
@@ -186,6 +190,7 @@ async function iniciarCreacionDesdeMenu(): Promise<void> {
 		casoUso: componerCrearPlaylistVacia(),
 		peticiones: peticionesDeTerminal,
 		verificarSesion: verificarSesionParaCrearPlaylist,
+		portada: componerPortadaReal(),
 	});
 }
 
@@ -200,6 +205,15 @@ async function iniciarListadoDesdeMenu(): Promise<void> {
 		casoUso: componerListarPlaylists(),
 		verificarSesion: verificarSesionVigente,
 	});
+}
+
+/**
+ * Ruta de la opción 6 del menú hacia el agregado batch: selecciona una o
+ * varias playlists por toggle, confirma (s/N) y carga `input/songs/*.json`.
+ * `N` o `input/songs/` vacía cancela con aviso y retorna al menú principal.
+ */
+async function iniciarAgregadoDesdeMenu(): Promise<void> {
+	await ejecutarAgregadoReal(verificarSesionVigente);
 }
 
 function getExitCodeForError(err: AuthError): number {
@@ -240,6 +254,10 @@ export async function handleCommand(
 				// El comando lista directamente; solo los desenlaces de error
 				// devuelven código de salida distinto de cero.
 				const finalizacion = await ejecutarComandoListarPlaylists();
+				return finalizacion.estado === "error" ? 1 : 0;
+			}
+			case "add-to-playlists": {
+				const finalizacion = await ejecutarAgregadoReal(verificarSesionVigente);
 				return finalizacion.estado === "error" ? 1 : 0;
 			}
 			default:
@@ -321,6 +339,9 @@ export async function runInteractiveMode(): Promise<number> {
 			case "5":
 				await iniciarListadoDesdeMenu();
 				break;
+			case "6":
+				await iniciarAgregadoDesdeMenu();
+				break;
 			case "9":
 				await handleLogout();
 				break;
@@ -360,6 +381,9 @@ export async function showHelp(): Promise<number> {
 		"  create-new-playlist  Crear playlist vacía (--name <nombre>, --description <texto>, --public | --private)",
 	);
 	showMessage("  list-playlists     Ver los nombres de tus playlists");
+	showMessage(
+		"  add-to-playlists   Agregar batch de input/songs/ a una o varias playlists",
+	);
 	showMessage("  --help    Mostrar esta ayuda");
 	showMessage("");
 	showMessage(bold("Variables de entorno:"));

@@ -31,6 +31,7 @@ export const REQUIRED_SCOPES = [
 	"playlist-modify-private",
 	"playlist-modify-public",
 	"playlist-read-collaborative",
+	"ugc-image-upload",
 ] as const;
 
 export const SCOPES_STRING = REQUIRED_SCOPES.join(" ");

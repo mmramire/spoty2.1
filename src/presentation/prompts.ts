@@ -1,9 +1,16 @@
 import { stdin, stdout } from "node:process";
 import { type Interface, createInterface } from "node:readline/promises";
 import { validateRedirectUri } from "@/business/auth/types.js";
-import type { Visibilidad } from "@/business/playlists/types.js";
+import {
+	alternarIndices,
+	interpretarEntradaSeleccion,
+} from "@/business/playlists/seleccion.js";
+import type {
+	PlaylistResumen,
+	Visibilidad,
+} from "@/business/playlists/types.js";
 import { resolverDescripcionEfectiva } from "@/business/playlists/validacion.js";
-import { dim, error, info } from "./console.js";
+import { bold, cyan, dim, error, green, info, warning } from "./console.js";
 import { MESSAGES } from "./messages.js";
 
 let rl: Interface | null = null;
@@ -52,7 +59,7 @@ export async function promptRedirectUri(): Promise<string> {
 }
 
 /** Texto del selector, alineado con la numeración real del menú (N-004). */
-const SELECTOR_MENU = "\nSelecciona una opción (0-5,9): ";
+const SELECTOR_MENU = "\nSelecciona una opción (0-6,9): ";
 
 /**
  * Ítems del menú (TASK-011) de los que se deriva la etiqueta de cada
@@ -65,6 +72,7 @@ const ITEMS_MENU: Record<string, string> = {
 	"3": MESSAGES.menu.download,
 	"4": MESSAGES.menu.createPlaylist,
 	"5": MESSAGES.menu.listPlaylists,
+	"6": MESSAGES.menu.addSongs,
 	"9": MESSAGES.menu.logout,
 	"0": MESSAGES.menu.exit,
 };
@@ -161,6 +169,42 @@ const LISTA_VISIBILIDAD =
 /** BR-007: solo `s` en minúscula confirma; `S`, `N`, vacío u otra respuesta no. */
 export function interpretarConfirmacionS(respuesta: string): boolean {
 	return respuesta.trim() === "s";
+}
+
+/**
+ * Clasificación fina de `(s/N)`: solo `s` confirma (BR-007); un casi-sí
+ * (`S`, `si`, `sí`, `y`, `yes`, en cualquier capitalización) pide repetir
+ * con aviso en vez de cancelar en silencio; el resto cancela.
+ */
+export type RespuestaSN = "confirmada" | "repetir" | "cancelada";
+
+/** Casi-sí en minúsculas (la `s` exacta ya confirmó antes de llegar aquí). */
+const CASI_SI = new Set(["s", "si", "sí", "y", "yes"]);
+
+export function clasificarRespuestaSN(respuesta: string): RespuestaSN {
+	const valor = respuesta.trim();
+	if (valor === "s") return "confirmada";
+	if (CASI_SI.has(valor.toLowerCase())) return "repetir";
+	return "cancelada";
+}
+
+/**
+ * Lee `(s/N)` repitiendo con aviso ante casi-sí; el aborto se propaga.
+ * Devuelve la respuesta en bruto: el llamado sigue interpretando con
+ * `interpretarConfirmacionS`, que ya solo puede recibir `s` o cancelación.
+ */
+export async function pedirConfirmacionSN(
+	lector: LectorEntrada,
+	texto: string,
+): Promise<EntradaPrompt> {
+	for (;;) {
+		const respuesta = await lector.leer(texto);
+		if (respuesta.estado === "abortado") return respuesta;
+		if (clasificarRespuestaSN(respuesta.valor) !== "repetir") {
+			return respuesta;
+		}
+		showMessage(warning(MESSAGES.playlist.reintentoConfirmacion));
+	}
 }
 
 /**
@@ -289,7 +333,7 @@ export async function confirmarCreacion(
 	resumen?: ResumenCreacion,
 	lector: LectorEntrada = lectorReadline,
 ): Promise<EntradaPrompt> {
-	return lector.leer(textoConfirmacion(resumen));
+	return pedirConfirmacionSN(lector, textoConfirmacion(resumen));
 }
 
 /** Menú de duplicados con el literal aprobado; acepta únicamente `0`, `1` y `2`. */
@@ -305,9 +349,190 @@ export async function promptOpcionDuplicados(
 	return { estado: "elegida", opcion: eleccion.valor };
 }
 
-/** Pregunta de modificación con el literal aprobado; interpreta con la convención `s/N`. */
+/** Pregunta de modificación con el literal aprobado; repite ante casi-sí. */
 export async function promptModificarDescripcion(
 	lector: LectorEntrada = lectorReadline,
 ): Promise<EntradaPrompt> {
-	return lector.leer(MESSAGES.playlist.modifyPrompt);
+	return pedirConfirmacionSN(lector, MESSAGES.playlist.modifyPrompt);
+}
+
+/** Opt-in de portada tras crear: pregunta `(s/N)`; repite ante casi-sí. */
+export async function promptPortadaOptIn(
+	lector: LectorEntrada = lectorReadline,
+): Promise<EntradaPrompt> {
+	return pedirConfirmacionSN(
+		lector,
+		`${MESSAGES.playlist.portadaPregunta}${FORMATO_CONFIRMACION}`,
+	);
+}
+
+// ─── Agregado batch a playlists ─────────────────────────────────────────────
+
+/** Resultado del selector múltiple por toggle (sin dependencia externa). */
+export type EleccionMultiple =
+	| { readonly estado: "elegidas"; readonly indices: readonly number[] }
+	| { readonly estado: "cancelado" }
+	| { readonly estado: "abortado" };
+
+/** Elección de archivo input por número. */
+export type EleccionArchivo =
+	| { readonly estado: "elegido"; readonly indice: number }
+	| { readonly estado: "cancelado" }
+	| { readonly estado: "abortado" };
+
+/**
+ * Selector múltiple por toggle sin dependencia externa.
+ * Muestra la lista numerada con marca [x]/[ ] y en la parte inferior
+ * el contador de seleccionadas. Devuelve índices 1-based elegidos.
+ */
+export async function promptSeleccionMultiple(
+	nombres: readonly string[],
+	lector: LectorEntrada = lectorReadline,
+): Promise<EleccionMultiple> {
+	let seleccion: readonly number[] = [];
+	for (;;) {
+		const lineas = nombres.map((nombre, i) => {
+			const marcada = seleccion.includes(i + 1);
+			const marca = marcada ? green("[x]") : dim("[ ]");
+			return `  ${cyan(`${i + 1}.`)} ${marca} "${marcada ? bold(nombre) : nombre}"`;
+		});
+		const seleccionadas = seleccion.map(
+			(ix) => ({ id: "", nombre: nombres[ix - 1] ?? "" }) as PlaylistResumen,
+		);
+		const contador = bold(MESSAGES.playlist.seleccionContador(seleccionadas));
+		const ayuda =
+			seleccion.length === 0
+				? dim("> Marca números (ej. 1,3) | 0 cancela: ")
+				: dim(
+						`> Enter confirma (${seleccion.length}) | número marca/desmarca | 0 cancela: `,
+					);
+		const respuesta = await lector.leer(
+			`\n${MESSAGES.playlist.seleccionLeyenda}\n\n${lineas.join("\n")}\n\n${contador}\n${ayuda}`,
+		);
+		if (respuesta.estado === "abortado") return { estado: "abortado" };
+		const entrada = interpretarEntradaSeleccion(
+			respuesta.valor,
+			nombres.length,
+		);
+		switch (entrada.tipo) {
+			case "cancelar":
+				return { estado: "cancelado" };
+			case "confirmar":
+				if (seleccion.length === 0) {
+					showMessage(MESSAGES.playlist.seleccionSinElegir);
+					break;
+				}
+				return { estado: "elegidas", indices: seleccion };
+			case "todas":
+				seleccion = nombres.map((_, i) => i + 1);
+				break;
+			case "ninguna":
+				seleccion = [];
+				break;
+			case "alternar":
+				seleccion = alternarIndices(seleccion, entrada.indices);
+				break;
+			case "invalida":
+				break;
+		}
+	}
+}
+
+/**
+ * Elige un archivo de `input/songs/*.json` con el mismo toggle que playlists
+ * (selección simple): número marca ese archivo, `Enter` confirma,
+ * `0` cancela. Abajo se ve el elegido.
+ */
+export async function promptArchivoInput(
+	nombres: readonly string[],
+	lector: LectorEntrada = lectorReadline,
+): Promise<EleccionArchivo> {
+	let elegido: number | null = null;
+	for (;;) {
+		const lineas = nombres.map((nombre, i) => {
+			const marcado = elegido === i + 1;
+			const marca = marcado ? green("[x]") : dim("[ ]");
+			return `  ${cyan(`${i + 1}.`)} ${marca} ${marcado ? bold(nombre) : nombre}`;
+		});
+		const pie = bold(
+			elegido === null
+				? "Elegido: ninguno"
+				: `Elegido: ${nombres[elegido - 1]}`,
+		);
+		const ayuda = dim(
+			elegido === null
+				? "> Marca número de archivo | 0 cancela: "
+				: "> Enter confirma | número cambia elección | 0 cancela: ",
+		);
+		const respuesta = await lector.leer(
+			`\n${MESSAGES.playlist.inputLeyenda}\n\n${lineas.join("\n")}\n\n${pie}\n${ayuda}`,
+		);
+		if (respuesta.estado === "abortado") return { estado: "abortado" };
+		const valor = respuesta.valor.trim().toLowerCase();
+		if (valor === "0") return { estado: "cancelado" };
+		if (valor === "" || valor === "ok" || valor === "done") {
+			if (elegido === null) {
+				showMessage(MESSAGES.playlist.inputSinElegir);
+				continue;
+			}
+			return { estado: "elegido", indice: elegido };
+		}
+		if (/^\d+$/.test(valor)) {
+			const numero = Number.parseInt(valor, 10);
+			if (numero >= 1 && numero <= nombres.length) {
+				elegido = elegido === numero ? null : numero;
+				continue;
+			}
+		}
+		showMessage(MESSAGES.playlist.inputInvalido);
+	}
+}
+
+/**
+ * Elige una portada de `input/covers/*` con el mismo toggle simple:
+ * número marca, `Enter` confirma, `0` omite. Abajo se ve la elegida.
+ */
+export async function promptElegirPortada(
+	nombres: readonly string[],
+	lector: LectorEntrada = lectorReadline,
+): Promise<EleccionArchivo> {
+	let elegido: number | null = null;
+	for (;;) {
+		const lineas = nombres.map((nombre, i) => {
+			const marcado = elegido === i + 1;
+			const marca = marcado ? green("[x]") : dim("[ ]");
+			return `  ${cyan(`${i + 1}.`)} ${marca} ${marcado ? bold(nombre) : nombre}`;
+		});
+		const pie = bold(
+			elegido === null
+				? "Elegida: ninguna"
+				: `Elegida: ${nombres[elegido - 1]}`,
+		);
+		const ayuda = dim(
+			elegido === null
+				? "> Marca número de imagen | 0 omite: "
+				: "> Enter confirma | número cambia elección | 0 omite: ",
+		);
+		const respuesta = await lector.leer(
+			`\n${MESSAGES.playlist.portadaLeyenda}\n\n${lineas.join("\n")}\n\n${pie}\n${ayuda}`,
+		);
+		if (respuesta.estado === "abortado") return { estado: "abortado" };
+		const valor = respuesta.valor.trim().toLowerCase();
+		if (valor === "0") return { estado: "cancelado" };
+		if (valor === "" || valor === "ok" || valor === "done") {
+			if (elegido === null) {
+				showMessage(MESSAGES.playlist.portadaSinElegir);
+				continue;
+			}
+			return { estado: "elegido", indice: elegido };
+		}
+		if (/^\d+$/.test(valor)) {
+			const numero = Number.parseInt(valor, 10);
+			if (numero >= 1 && numero <= nombres.length) {
+				elegido = elegido === numero ? null : numero;
+				continue;
+			}
+		}
+		showMessage(MESSAGES.playlist.portadaInvalida);
+	}
 }

@@ -24,18 +24,26 @@ import type {
 	DesenlaceConfirmacion,
 	EntradaVisibilidad,
 	ErrorValidacion,
+	Exito,
 	ResultadoCreacion,
+	ResultadoPortada,
 	SolicitudCreacion,
+	SolicitudSubirPortada,
 } from "../business/playlists/types.js";
 import {
 	recortarNombre,
 	resolverDescripcionEfectiva,
 	resolverVisibilidad,
 } from "../business/playlists/validacion.js";
+import type {
+	ArchivoPortada,
+	ResultadoCargaPortada,
+} from "../data/input/covers-loader.js";
 import type { CasoUsoCrearPlaylist } from "./composicion-crear-playlist.js";
 import { confirm, warning } from "./console.js";
 import { MESSAGES } from "./messages.js";
 import {
+	type EleccionArchivo,
 	type EleccionDuplicados,
 	type EleccionVisibilidad,
 	type EntradaPrompt,
@@ -75,6 +83,30 @@ export interface EntradaDirecta {
 	readonly confirmacionPreResuelta: boolean;
 }
 
+/** Peticiones del paso opcional de portada (solo vía menú). */
+export interface PeticionesPortada {
+	confirmar(): Promise<EntradaPrompt>;
+	elegir(nombres: readonly string[]): Promise<EleccionArchivo>;
+}
+
+/** Carga de portadas `input/covers/*` inyectada para pruebas sin disco real. */
+export interface CargaPortadas {
+	listar(): Promise<ArchivoPortada[]>;
+	cargar(ruta: string): Promise<ResultadoCargaPortada>;
+}
+
+/** Caso de uso de subida de portada inyectado. */
+export type CasoUsoSubirPortada = (
+	solicitud: SolicitudSubirPortada,
+) => Promise<ResultadoPortada>;
+
+/** Bundle opcional del paso de portada: ausente en comando directo y pruebas. */
+export interface BundlePortada {
+	readonly peticiones: PeticionesPortada;
+	readonly carga: CargaPortadas;
+	readonly casoUsoSubir: CasoUsoSubirPortada;
+}
+
 /** Dependencias del coordinador: caso de uso y peticiones, ambas inyectadas. */
 export interface CoordinadorCreacion {
 	readonly casoUso: CasoUsoCrearPlaylist;
@@ -87,6 +119,11 @@ export interface CoordinadorCreacion {
 	 * literal `noSessionError` y finaliza como error sin pedir nada.
 	 */
 	readonly verificarSesion?: () => Promise<boolean>;
+	/**
+	 * Paso opcional de portada tras la creación: solo lo aporta la vía de
+	 * menú; el comando directo no pregunta y conserva su comportamiento.
+	 */
+	readonly portada?: BundlePortada;
 }
 
 /**
@@ -124,6 +161,7 @@ interface Flujo {
 	readonly casoUso: CasoUsoCrearPlaylist;
 	readonly peticiones: PeticionesCreacion;
 	readonly entradaDirecta?: EntradaDirecta;
+	readonly portada?: BundlePortada;
 	/** `true` mientras la confirmación siga pre-resuelta (comando directo sin reingreso). */
 	canalPreResuelto: boolean;
 }
@@ -202,6 +240,7 @@ function crearFlujo(coordinador: CoordinadorCreacion): Flujo {
 		casoUso: coordinador.casoUso,
 		peticiones: coordinador.peticiones,
 		entradaDirecta: coordinador.entradaDirecta,
+		portada: coordinador.portada,
 		canalPreResuelto:
 			coordinador.entradaDirecta?.confirmacionPreResuelta === true,
 	};
@@ -326,8 +365,10 @@ async function modificarTrasDuplicado(
 /**
  * UC-001-A1: muestra el literal del duplicado con el nombre efectivo y el menú
  * `1/2/0`. Con `2` se reinvoca con `duplicadoAceptado: true` —Business omite
- * la comprobación ya resuelta y solicita la confirmación por el canal—; con
- * `0` se muestra la cancelación sin invocar el caso de uso ni añadir registro.
+ * la comprobación ya resuelta y solicita la confirmación por el canal—; si ahí
+ * se responde `N`, se vuelve a este menú conservando los datos (en vez de
+ * cancelar todo); con `0` se muestra la cancelación sin invocar el caso de uso
+ * ni añadir registro.
  */
 async function evaluarDuplicado(
 	nombreEfectivo: string,
@@ -356,6 +397,7 @@ async function evaluarDesenlace(
 	resultado: ResultadoCreacion,
 	datos: DatosSolicitud,
 	flujo: Flujo,
+	solicitud: SolicitudCreacion,
 ): Promise<PasoFlujo> {
 	switch (resultado.resultado) {
 		case "exito":
@@ -370,17 +412,90 @@ async function evaluarDesenlace(
 					),
 				),
 			);
+			if (flujo.portada !== undefined) {
+				await ofrecerPortada(resultado, flujo.portada);
+			}
 			return finalizar(CREADA);
 		case "errorValidacion":
 			return evaluarValidacion(resultado, datos, flujo);
 		case "duplicado":
 			return evaluarDuplicado(resultado.nombreEfectivo, datos, flujo);
 		case "cancelado":
+			// Tras el 2 (duplicado aceptado), N retorna al menú de duplicados
+			// conservando descripción y visibilidad para poder elegir 1 y
+			// renombrar; 0 o Ctrl+C sí cancelan. En cualquier otro caso,
 			// BR-007: retorno al menú o fin del flujo sin registrar ni literales.
+			if (solicitud.duplicadoAceptado === true) {
+				return evaluarDuplicado(recortarNombre(datos.nombre), datos, flujo);
+			}
 			return finalizar(CANCELADA);
 		default:
 			showError(LITERALES_DE_ERROR[resultado.resultado]);
 			return finalizar(ERROR);
+	}
+}
+
+/**
+ * Paso opcional de portada tras la creación: pregunta `(s/N)`, lista
+ * `input/covers/*` en toggle y sube el JPEG (≤256 KB). Nunca revierte
+ * la playlist creada: cualquier omisión o fallo solo presenta su
+ * literal y el flujo finaliza como creación.
+ */
+async function ofrecerPortada(
+	creada: Exito,
+	bundle: BundlePortada,
+): Promise<void> {
+	const optativa = await bundle.peticiones.confirmar();
+	if (optativa.estado === "abortado") return;
+	if (!interpretarConfirmacionS(optativa.valor)) {
+		showMessage(MESSAGES.playlist.portadaOmitida);
+		return;
+	}
+	const covers = await bundle.carga.listar();
+	if (covers.length === 0) {
+		showMessage(MESSAGES.playlist.portadaVacia);
+		return;
+	}
+	const eleccion = await bundle.peticiones.elegir(covers.map((c) => c.nombre));
+	if (eleccion.estado !== "elegido") {
+		if (eleccion.estado === "cancelado") {
+			showMessage(MESSAGES.playlist.portadaOmitida);
+		}
+		return;
+	}
+	const cover = covers[eleccion.indice - 1];
+	if (cover === undefined) {
+		showMessage(MESSAGES.playlist.portadaOmitida);
+		return;
+	}
+	const cargada = await bundle.carga.cargar(cover.ruta);
+	if (!cargada.valida) {
+		showError(MESSAGES.playlist.portadaArchivoInvalido(cargada.motivo));
+		return;
+	}
+	const subida = await bundle.casoUsoSubir({
+		playlistId: creada.identificador,
+		base64: cargada.base64,
+	});
+	switch (subida.resultado) {
+		case "exito":
+			showMessage(confirm(MESSAGES.playlist.portadaOk));
+			return;
+		case "sinSesion":
+			showError(MESSAGES.playlist.noSessionError);
+			return;
+		case "sesionCaducada":
+			showError(MESSAGES.playlist.sessionExpiredError);
+			return;
+		case "permisosInsuficientes":
+			showError(MESSAGES.playlist.portadaPermisosError);
+			return;
+		case "limiteAgotado":
+			showError(MESSAGES.playlist.rateLimitError);
+			return;
+		case "falloInesperado":
+			showError(MESSAGES.playlist.portadaInesperadoError);
+			return;
 	}
 }
 
@@ -409,7 +524,7 @@ export async function ejecutarFlujoCreacion(
 	let datos = datosInicia;
 	for (;;) {
 		const resultado = await flujo.casoUso(solicitud);
-		const paso = await evaluarDesenlace(resultado, datos, flujo);
+		const paso = await evaluarDesenlace(resultado, datos, flujo, solicitud);
 		if (paso.tipo === "finalizar") {
 			return paso.finalizacion;
 		}

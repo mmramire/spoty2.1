@@ -19,16 +19,20 @@ import type {
 	DependenciasCreacion,
 	Espera,
 } from "../business/playlists/puertos.js";
+import { subirPortadaAPlaylist } from "../business/playlists/subir-portada.js";
 import type {
 	ResultadoCreacion,
 	SolicitudCreacion,
 } from "../business/playlists/types.js";
 import { crearPlaylistGateway } from "../data/http/playlists-client.js";
+import { cargarPortada, listarPortadas } from "../data/input/covers-loader.js";
 import { crearRegistroTecnico } from "../data/logging/registro-tecnico.js";
 import {
 	sesionDeAlmacenamiento,
 	verificarSesionVigente,
 } from "./composicion-sesion.js";
+import type { BundlePortada } from "./crear-playlist.js";
+import { promptElegirPortada, promptPortadaOptIn } from "./prompts.js";
 
 /** Caso de uso ya compuesto: se invoca con una solicitud, sin dependencias. */
 export type CasoUsoCrearPlaylist = (
@@ -71,4 +75,25 @@ export function componerCrearPlaylistVacia(): CasoUsoCrearPlaylist {
 		espera: esperaDeTemporizador,
 	};
 	return (solicitud) => crearPlaylistVacia(solicitud, dependencias);
+}
+
+/**
+ * Bundle real del paso opcional de portada (solo vía menú): opt-in `(s/N)`,
+ * toggle sobre `input/covers/*` y subida con el mismo gateway y registro.
+ */
+export function componerPortadaReal(): BundlePortada {
+	const dependencias: DependenciasCreacion = {
+		sesionProveedor: sesionDeAlmacenamiento,
+		playlistGateway: crearPlaylistGateway(),
+		registroTecnico: crearRegistroTecnico(),
+		espera: esperaDeTemporizador,
+	};
+	return {
+		peticiones: {
+			confirmar: () => promptPortadaOptIn(),
+			elegir: (nombres) => promptElegirPortada(nombres),
+		},
+		carga: { listar: listarPortadas, cargar: cargarPortada },
+		casoUsoSubir: (solicitud) => subirPortadaAPlaylist(solicitud, dependencias),
+	};
 }

@@ -1,0 +1,17 @@
+{
+	"source": "2026-10-12_21-36-16-download_songs.json",
+	"tracks": [
+		{
+			"id": "1Bc6DBlULAm002j4GeXP68",
+			"uri": "spotify:track:1Bc6DBlULAm002j4GeXP68",
+			"name": "Diane",
+			"artists": ["Miles Davis Quintet"]
+		},
+		{
+			"id": "6otAMbr9eiTRksxQaLgNnX",
+			"uri": "spotify:track:6otAMbr9eiTRksxQaLgNnX",
+			"name": "Lo Que Daría",
+			"artists": ["Naranjos"]
+		}
+	]
+}

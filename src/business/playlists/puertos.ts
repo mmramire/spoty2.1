@@ -17,6 +17,26 @@ import type {
 } from "./types.js";
 
 /**
+ * Entrada de agregado que Business entrega al puerto `PlaylistGateway`.
+ * Spotify acepta hasta 100 URIs por petición (`POST /playlists/{id}/items`).
+ */
+export interface EntradaAgregado {
+	readonly playlistId: string;
+	readonly uris: readonly string[];
+	readonly testigoSesion: string;
+}
+
+/**
+ * Entrada de portada que Business entrega al puerto `PlaylistGateway`
+ * (`PUT /playlists/{id}/images`, `Content-Type: image/jpeg`, Base64 ≤ 256 KB).
+ */
+export interface EntradaPortada {
+	readonly playlistId: string;
+	readonly base64: string;
+	readonly testigoSesion: string;
+}
+
+/**
  * Campos estructurados admitidos por el registro técnico (RNF-006). El conjunto
  * cerrado impide que testigos, cabeceras o cuerpos de respuesta lleguen al
  * registro (RNF-001).
@@ -40,6 +60,8 @@ export interface SesionProveedor {
 export interface PlaylistGateway {
 	crearPlaylist: (entrada: EntradaCreacionPlaylist) => Promise<PlaylistCreada>;
 	listarPlaylistsPropias: () => Promise<readonly PlaylistResumen[]>;
+	agregarCanciones: (entrada: EntradaAgregado) => Promise<number>;
+	subirPortada: (entrada: EntradaPortada) => Promise<void>;
 }
 
 /** Registro técnico: Data lo implementa sobre Pino; Business emite la intención. */

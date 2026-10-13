@@ -1,10 +1,11 @@
 # Spoty
 
-Spoty es un programa que se conecta con tu cuenta de Spotify para hacer tres cosas:
+Spoty es un programa que se conecta con tu cuenta de Spotify para hacer estas cosas:
 
 1. **Descargar la lista de canciones que marcaste con "Me gusta"** a un archivo en tu computadora.
-2. **Crear playlists vacías** nuevas en tu cuenta de Spotify.
-3. **Ver los nombres de tus playlists** creadas.
+2. **Crear playlists vacías** nuevas en tu cuenta de Spotify (con portada opcional).
+3. **Ver tus playlists** con su nombre e identificador.
+4. **Agregar canciones por lote** a una o varias playlists desde archivos que preparas en `input/songs/`.
 
 Todo se usa desde una ventana de comandos (la terminal), siguiendo un menú con opciones numeradas.
 
@@ -68,6 +69,7 @@ Verás este menú:
 3. Descargar biblioteca
 4. Crear playlist vacía
 5. Ver mis playlists
+6. Agregar canciones a playlists (batch input/songs/)
 9. Cerrar sesión
 0. Salir
 ```
@@ -77,12 +79,13 @@ Escribe el número de la opción y pulsa Enter.
 - **1. Conectar con Spotify**: inicia sesión (solo la primera vez o si la sesión caducó).
 - **2. Ver estado de conexión**: te dice si hay una sesión activa y con qué usuario.
 - **3. Descargar biblioteca**: guarda tus canciones con "Me gusta" en un archivo dentro de la carpeta `downloads/`. Al terminar te muestra cuántas canciones descargó y dónde quedó el archivo.
-- **4. Crear playlist vacía**: te pide el nombre, una descripción opcional y si la quieres pública o privada. Después te muestra un resumen y debes confirmar escribiendo `s`. Si ya tienes una playlist con ese nombre, te deja cambiarlo, crearla igual o cancelar.
-- **5. Ver mis playlists**: muestra los nombres de tus playlists, una por línea. Si no tienes ninguna, te lo avisa.
+- **4. Crear playlist vacía**: te pide el nombre, una descripción opcional y si la quieres pública o privada. Después te muestra un resumen y debes confirmar escribiendo `s`. Si ya tienes una playlist con ese nombre, te deja cambiarlo (1), crearla igual (2) o cancelar (0). Si elegiste 2 y luego dices `N` en la confirmación, vuelves al menú de duplicados conservando lo escrito, por si quieres renombrar. Al crearla, te pregunta si quieres ponerle una **portada** (`s`/`N`): si dices que sí, eliges una imagen JPEG de la carpeta `input/covers/`.
+- **5. Ver mis playlists**: muestra tus playlists con su nombre y su identificador (el `id` que Spotify usa para agregar canciones), una por línea. Si no tienes ninguna, te lo avisa.
+- **6. Agregar canciones a playlists**: primero eliges una o varias playlists marcándolas con sus números (se van tachando con `[x]` y abajo ves el contador; Enter confirma, `0` cancela). Luego confirmas con `s`. Después eliges el archivo de canciones de la carpeta `input/songs/` de la misma forma. Al terminar te dice cuántas canciones agregó en cada playlist.
 - **9. Cerrar sesión**: borra tu sesión de esta computadora.
 - **0. Salir**: cierra el programa (antes te pide confirmación).
 
-> Nota: las opciones 3, 4 y 5 necesitan que hayas iniciado sesión primero. Si no lo hiciste, el programa te lo avisa y no hace nada más.
+> Nota: las opciones 3, 4, 5 y 6 necesitan que hayas iniciado sesión primero. Si no lo hiciste, el programa te lo avisa y no hace nada más.
 
 ## Atajos (opcional)
 
@@ -104,6 +107,9 @@ npm run dev -- create-new-playlist --name "Mis favoritas" --public
 # Ver los nombres de tus playlists
 npm run dev -- list-playlists
 
+# Agregar un lote de canciones a una o varias playlists (interactivo)
+npm run dev -- add-to-playlists
+
 # Cerrar sesión
 npm run dev -- logout
 ```
@@ -123,6 +129,7 @@ node dist/cli.js
 node dist/cli.js connect
 node dist/cli.js download-songs
 node dist/cli.js list-playlists
+node dist/cli.js add-to-playlists
 ```
 
 Funciona igual que `npm run dev`, pero usa la versión compilada en la carpeta `dist/`.
@@ -131,11 +138,31 @@ Funciona igual que `npm run dev`, pero usa la versión compilada en la carpeta `
 
 - **Tu sesión**: se guarda en `data/tokens.json` en la carpeta del proyecto. No la compartas con nadie.
 - **Tus descargas**: quedan en la carpeta `downloads/`, en archivos con la fecha y hora en el nombre.
+- **Tus lotes de canciones**: van en la carpeta `input/songs/`, en archivos `.json` con este formato (lo puedes armar a mano o con ayuda de una IA a partir de una descarga):
+
+```json
+{
+  "source": "2026-10-12_21-36-16-download_songs.json",
+  "tracks": [
+    {
+      "id": "AAAAAAAAAAAAAAAAAAAAAA",
+      "uri": "spotify:track:AAAAAAAAAAAAAAAAAAAAAA",
+      "name": "Canción de ejemplo",
+      "artists": ["Artista inventado"]
+    }
+  ]
+}
+```
+
+El programa solo necesita el `uri` de cada canción; el resto sirve para verificar qué estás cargando. Hay un ejemplo en `input/songs/add-to-playlists.example.json`.
+
+- **Tus portadas**: van en la carpeta `input/covers/`, en archivos `.jpg` (solo JPEG, de hasta unos 192 KB para no pasar el límite de 256 KB que pide Spotify).
 - El programa nunca te pide tu contraseña de Spotify: el inicio de sesión siempre se hace en la página oficial de Spotify desde tu navegador.
 
 ## Si algo sale mal
 
 - **"No hay sesión activa" o "Configuración requerida"**: ejecuta el programa y elige la opción **1** para iniciar sesión de nuevo. Las sesiones pueden caducar o revocarse con el tiempo.
+- **"Permisos insuficientes para subir la portada (falta scope ugc-image-upload)"**: tu sesión es anterior al permiso de portadas. Elige la opción **9** (cerrar sesión) y luego la **1** (conectar) para autorizar de nuevo con todos los permisos.
 - **"Puerto 8888 en uso"**: otra aplicación está usando ese puerto. Ciérrala o usa otro puerto (por ejemplo `http://127.0.0.1:9999/callback`), pero recuerda poner la misma dirección en el Dashboard de Spotify y cuando el programa te la pida.
 - **"Redirect URI inválida" o algo sobre "localhost"**: la dirección debe ser exactamente `http://127.0.0.1:puerto/callback` (con `127.0.0.1`, no con `localhost`) y debe coincidir con la que registraste en el Dashboard de Spotify.
 - **La descarga falla a la mitad**: vuelve a intentarlo; si el error menciona la sesión, inicia sesión de nuevo con la opción **1**.

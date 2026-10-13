@@ -39,10 +39,26 @@ export interface PlaylistResumen {
 	readonly nombre: string;
 }
 
+/** Entrada de agregado batch que acepta el gateway (forma del puerto de Business). */
+export interface EntradaAgregado {
+	readonly playlistId: string;
+	readonly uris: readonly string[];
+	readonly testigoSesion: string;
+}
+
+/** Entrada de portada que acepta el gateway (forma del puerto de Business). */
+export interface EntradaPortada {
+	readonly playlistId: string;
+	readonly base64: string;
+	readonly testigoSesion: string;
+}
+
 /** Gateway de playlists con la forma estructural del puerto `PlaylistGateway`. */
 export interface GatewayPlaylists {
 	crearPlaylist: (entrada: EntradaCreacion) => Promise<PlaylistCreada>;
 	listarPlaylistsPropias: () => Promise<readonly PlaylistResumen[]>;
+	agregarCanciones: (entrada: EntradaAgregado) => Promise<number>;
+	subirPortada: (entrada: EntradaPortada) => Promise<void>;
 }
 
 /** Punto de inyección de `fetch` para pruebas sin red real. */
@@ -246,6 +262,56 @@ async function listarPlaylistsPropias(
 }
 
 /**
+ * Agregado batch con `POST /playlists/{id}/items` (el endpoint
+ * `/tracks` está deprecado y responde 403): envía las URIs en
+ * bloques de 100 (límite de Spotify) y devuelve el total agregado.
+ */
+async function agregarCanciones(
+	entrada: EntradaAgregado,
+	fetchHttp: FetchInyectable,
+): Promise<number> {
+	const TAMANO_BLOQUE = 100;
+	let agregadas = 0;
+	for (let i = 0; i < entrada.uris.length; i += TAMANO_BLOQUE) {
+		const bloque = entrada.uris.slice(i, i + TAMANO_BLOQUE);
+		await solicitar(
+			fetchHttp,
+			`${URL_BASE}/playlists/${encodeURIComponent(entrada.playlistId)}/items`,
+			{
+				method: "POST",
+				headers: cabecerasAutorizacion(entrada.testigoSesion, true),
+				body: JSON.stringify({ uris: [...bloque] }),
+			},
+		);
+		agregadas += bloque.length;
+	}
+	return agregadas;
+}
+
+/**
+ * Reemplaza la portada con `PUT /playlists/{id}/images`: cuerpo Base64
+ * crudo con `Content-Type: image/jpeg`. Spotify responde 202 sin cuerpo,
+ * por eso no se lee JSON (RNF-001).
+ */
+async function subirPortada(
+	entrada: EntradaPortada,
+	fetchHttp: FetchInyectable,
+): Promise<void> {
+	await solicitar(
+		fetchHttp,
+		`${URL_BASE}/playlists/${encodeURIComponent(entrada.playlistId)}/images`,
+		{
+			method: "PUT",
+			headers: {
+				...cabecerasAutorizacion(entrada.testigoSesion, false),
+				"Content-Type": "image/jpeg",
+			},
+			body: entrada.base64,
+		},
+	);
+}
+
+/**
  * Crea el gateway de playlists. Sin opciones usa `fetch` global y el testigo
  * de sesión almacenado en `tokens-file.ts` (sesión encapsulada en Data).
  */
@@ -260,5 +326,7 @@ export function crearPlaylistGateway(
 		crearPlaylist: (entrada) => crearPlaylist(entrada, fetchHttp),
 		listarPlaylistsPropias: () =>
 			listarPlaylistsPropias(fetchHttp, obtenerTestigo),
+		agregarCanciones: (entrada) => agregarCanciones(entrada, fetchHttp),
+		subirPortada: (entrada) => subirPortada(entrada, fetchHttp),
 	};
 }

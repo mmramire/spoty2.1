@@ -53,6 +53,10 @@ export function confirm(message: string): string {
 	return `${colors.green}✓${colors.reset} ${message}`;
 }
 
+export function green(message: string): string {
+	return `${colors.green}${message}${colors.reset}`;
+}
+
 export function blank(): string {
 	return "";
 }
